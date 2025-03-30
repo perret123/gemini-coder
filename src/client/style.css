@@ -589,6 +589,7 @@ textarea#prompt {
 /* Logo Image */
 #appLogo {
     max-width: 150px;
+    max-height: 60px; /* Added max-height */
     height: auto;
 }
 
