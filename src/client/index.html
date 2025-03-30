@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Coder</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Removed inline theme script -->
+</head>
+
+<body>
+    <div class="logo-container">
+        <img src="logo.png" alt="Logo" id="appLogo">
+        <button id="themeSwitcher" title="Toggle Theme">☀️</button> <!-- Added theme button -->
+    </div>
+
+    <div id="controls">
+        <div class="form-group">
+            <label for="baseDir">Base Directory:</label>
+            <input type="text" id="baseDir" placeholder="e.g., . or /path/to/your/project">
+            <small>Enter a path relative to the server or an absolute path. Ensure the server has permissions.</small>
+        </div>
+        <div class="form-group prompt-container"> <!-- Added class for positioning context -->
+            <label for="prompt">Your Instructions:</label>
+            <textarea id="prompt" class="drop-zone" rows="4" placeholder="e.g., Rename utils/helper.js to utils/helpers.js and update imports in main.js. Drag & drop files here..."></textarea>
+            <button id="customUploadTrigger" title="Attach Files">📎</button> <!-- Added custom trigger button -->
+        </div>
+        <!-- Image Upload Input - Now Hidden -->
+        <div class="form-group visually-hidden"> <!-- Added class to hide -->
+            <label for="imageUpload">Upload Images (Optional):</label>
+            <input type="file" id="imageUpload" accept="image/*" multiple>
+            <!-- Removed the original small text -->
+        </div>
+        <!-- End Image Upload Input -->
+        <div class="form-group context-temp-group"> <!-- Modified this div -->
+            <label for="continueContext">
+                <input type="checkbox" id="continueContext"> Continue context from previous task?
+            </label>
+            <div class="temperature-slider-container"> <!-- Added container for slider -->
+                <label for="temperatureSlider">Temp:</label>
+                <input type="range" id="temperatureSlider" name="temperature" min="0" max="1" step="0.1" value="0.7">
+                <span id="temperatureValue">0.7</span> <!-- To display current value -->
+            </div>
+        </div>
+        <button id="startButton">Start Task</button>
+
+    </div>
+
+    <div id="logContainer">
+        <h2>Logs & Progress</h2>
+        <pre id="logOutput"></pre>
+    </div>
+
+    <div id="feedbackContainer" class="hidden">
+        <p id="feedbackMessage">Confirmation needed...</p>
+        <button id="confirmYes">Yes</button>
+        <button id="confirmYesAll">Yes to All</button>
+        <button id="confirmNo">No</button>
+    </div>
+
+    <!-- New Question Input Container -->
+    <div id="questionContainer" class="hidden">
+        <p id="questionText">Question from Gemini...</p>
+        <div class="question-input-group">
+             <input type="text" id="questionInput" placeholder="Your answer...">
+             <button id="submitAnswer">Submit</button>
+        </div>
+        <div class="question-button-group">
+             <button id="questionYes">Yes</button>
+             <button id="questionNo">No</button>
+        </div>
+    </div>
+    <!-- End Question Input Container -->
+
+
+    <!-- Load Socket.IO client library -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Load your client-side JS -->
+    <script src="client.js"></script>
+</body>
+
+</html>
