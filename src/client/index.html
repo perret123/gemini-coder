@@ -1,84 +1,127 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gemini Coder</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Removed inline theme script -->
+    <!-- Consider adding a favicon -->
+    <!-- <link rel="icon" href="favicon.ico" type="image/x-icon"> -->
 </head>
+<body class="app-container"> <!-- Base class for styling -->
 
-<body>
-    <div class="logo-container">
-        <img src="logo.png" alt="Logo" id="appLogo" style="vertical-align: middle; margin-right: 10px;">
-        <h1 style="display: inline; vertical-align: middle; margin: 0; font-size: 1.5em;">Gemini Coder</h1>
-        <button id="themeSwitcher" title="Toggle Theme">☀️</button> <!-- Added theme button -->
+    <!-- Sidebar for Task List -->
+    <div id="taskListContainer">
+        <div class="logo-container">
+            <!-- Make sure logo.png exists in the client directory -->
+            <img src="logo.png" alt="Logo" id="appLogo">
+            <h1>Gemini Coder</h1>
+            <button id="themeSwitcher" title="Toggle Theme">☀️</button> <!-- Icon updated by JS -->
+        </div>
+        <ul id="taskList">
+            <!-- Task items will be rendered here by taskManager.js -->
+            <li class="task-item new-task-item active" data-task-id="new">✨ New Task...</li> <!-- Default item -->
+        </ul>
     </div>
 
-    <div id="controls">
-        <div class="form-group">
-            <label for="baseDir">Base Directory:</label>
-            <input type="text" id="baseDir" placeholder="e.g., . or /path/to/your/project">
-            <small>Enter a path relative to the server or an absolute path. Ensure the server has permissions.</small>
-        </div>
-        <div class="form-group prompt-container"> <!-- Added class for positioning context -->
-            <label for="prompt">Your Instructions:</label>
-            <textarea id="prompt" class="drop-zone" rows="4" placeholder="e.g., Rename utils/helper.js to utils/helpers.js and update imports in main.js. Drag & drop files here..."></textarea>
-            <button id="customUploadTrigger" title="Attach Files">📎</button> <!-- Added custom trigger button -->
-        </div>
-        <!-- Image Upload Input - Now Hidden -->
-        <div class="form-group visually-hidden"> <!-- Added class to hide -->
-            <label for="imageUpload">Upload Images (Optional):</label>
-            <input type="file" id="imageUpload" accept="image/*" multiple>
-            <!-- Removed the original small text -->
-        </div>
-        <!-- End Image Upload Input -->
-        <div class="form-group context-temp-group"> <!-- Modified this div -->
-            <label for="continueContext">
-                <input type="checkbox" id="continueContext"> Continue context from previous task?
-            </label>
-            <div class="temperature-slider-container"> <!-- Added container for slider -->
-                <label for="temperatureSlider">Temp:</label>
-                <input type="range" id="temperatureSlider" name="temperature" min="0" max="1" step="0.1" value="0.7">
-                <span id="temperatureValue">0.7</span> <!-- To display current value -->
+    <!-- Main Content Area -->
+    <div class="main-content">
+
+        <!-- Control Panel -->
+        <div id="controls">
+            <div class="form-group">
+                <label for="baseDir">Base Directory:</label>
+                <input type="text" id="baseDir" placeholder="e.g., . or /path/to/project" required>
+                <small>Path relative to server or absolute. Ensure server has permissions. Required.</small>
+            </div>
+
+            <div class="form-group prompt-container">
+                <label for="prompt">Your Instructions:</label>
+                <!-- Added drop-zone class for potential styling -->
+                <textarea id="prompt" class="drop-zone" rows="5" placeholder="Enter detailed instructions... (e.g., Rename utils/helper.js to utils/helpers.js and update imports in main.js). You can also drop files here." required></textarea>
+                <!-- Custom button to trigger file input -->
+                <button id="customUploadTrigger" class="file-upload-button" title="Attach Files (or drop here)">📎</button>
+                 <!-- Visually hidden actual file input -->
+                <input type="file" id="imageUpload" accept="image/*" multiple class="visually-hidden">
+            </div>
+
+            <!-- Removed the visually-hidden group for imageUpload as it's now paired with the trigger -->
+
+            <div class="form-group context-temp-group">
+                <label for="continueContext">
+                    <input type="checkbox" id="continueContext">
+                    Continue context from previous run? (If available for this base dir)
+                </label>
+                <div class="temperature-slider-container">
+                    <label for="temperatureSlider">Temp:</label>
+                    <input type="range" id="temperatureSlider" name="temperature" min="0" max="1" step="0.1" value="0.7">
+                    <span id="temperatureValue">0.7</span>
+                </div>
+            </div>
+
+            <button id="startButton">Start Task</button>
+        </div> <!-- End controls -->
+
+        <!-- Logs and Context Side-by-Side -->
+        <div class="logs-and-context-wrapper">
+
+            <!-- Log Output Area -->
+            <div id="logContainer"> <!-- Added container for scrolling -->
+                <h2>Logs & Progress</h2>
+                <pre id="logOutput"></pre> <!-- Log messages appear here -->
+            </div>
+
+            <!-- Context Display Area -->
+            <div id="contextContainer">
+                <h2>Current Context</h2>
+                <ul id="contextList">
+                    <!-- Context items will be rendered here by uiHelpers.js -->
+                    <li>(Context loads here after task starts)</li>
+                </ul>
+            </div>
+
+        </div> <!-- End logs-and-context-wrapper -->
+
+
+        <!-- Confirmation Dialog (Hidden by default) -->
+        <div id="feedbackContainer" class="hidden modal-dialog">
+            <p id="feedbackMessage">Confirmation required...</p>
+             <div class="modal-buttons">
+                <button id="confirmYes">Yes</button>
+                <button id="confirmYesAll">Yes to All</button>
+                <button id="confirmNo">No</button>
             </div>
         </div>
-        <button id="startButton">Start Task</button>
 
-    </div>
-
-    <div id="logContainer">
-        <h2>Logs & Progress</h2>
-        <pre id="logOutput"></pre>
-    </div>
-
-    <div id="feedbackContainer" class="hidden">
-        <p id="feedbackMessage">Confirmation needed...</p>
-        <button id="confirmYes">Yes</button>
-        <button id="confirmYesAll">Yes to All</button>
-        <button id="confirmNo">No</button>
-    </div>
-
-    <!-- New Question Input Container -->
-    <div id="questionContainer" class="hidden">
-        <p id="questionText">Question from Gemini...</p>
-        <div class="question-input-group">
-             <input type="text" id="questionInput" placeholder="Your answer...">
-             <button id="submitAnswer">Submit</button>
+        <!-- Question Dialog (Hidden by default) -->
+        <div id="questionContainer" class="hidden modal-dialog">
+            <p id="questionText">Question from Gemini...</p>
+            <div class="question-input-group">
+                <input type="text" id="questionInput" placeholder="Your answer...">
+                <button id="submitAnswer">Submit</button>
+            </div>
+            <div class="question-button-group modal-buttons">
+                <!-- Optional Yes/No buttons for questions that allow it -->
+                <button id="questionYes">Yes</button>
+                <button id="questionNo">No</button>
+            </div>
         </div>
-        <div class="question-button-group">
-             <button id="questionYes">Yes</button>
-             <button id="questionNo">No</button>
-        </div>
-    </div>
-    <!-- End Question Input Container -->
 
+    </div> <!-- End main-content -->
 
     <!-- Load Socket.IO client library -->
     <script src="/socket.io/socket.io.js"></script>
-    <!-- Load your client-side JS -->
-    <script src="client.js"></script>
-</body>
 
+    <!-- Load application scripts -->
+    <!-- Order might matter if scripts depend on each other globally -->
+    <script src="js/logger.js"></script>
+    <script src="js/uiHelpers.js"></script>
+    <script src="js/fileUploadHandler.js"></script>
+    <script src="js/themeManager.js"></script>
+    <script src="js/taskManager.js"></script>
+    <script src="js/socketHandlerClient.js"></script>
+    <!-- Main client entry point - Load last or use defer -->
+    <script src="client.js" defer></script>
+
+</body>
 </html>
