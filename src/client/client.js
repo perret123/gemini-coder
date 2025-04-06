@@ -1,202 +1,174 @@
 let baseDirInput, promptInput, continueContextCheckbox, temperatureSlider, temperatureValueSpan, startButton, logOutput, imageUploadInput;
-let currentSocket = null; // Holds the active socket connection
+let currentSocket = null;
 
 async function handleStartTaskClick() {
     // Ensure all required elements are available
     if (!baseDirInput || !promptInput || !continueContextCheckbox || !temperatureSlider || !startButton || !imageUploadInput || !logOutput) {
         console.error("Core UI elements not found. Cannot start task.");
-        if (typeof addLogMessage === 'function') addLogMessage('Error: Critical UI elements missing.', 'error');
+        if (typeof addLogMessage === 'function') addLogMessage('Error: Critical UI elements missing.', 'error', true); // Bubble
         return;
     }
 
-    // Get values from inputs
     const baseDir = baseDirInput.value.trim();
     const prompt = promptInput.value.trim();
     const continueContext = continueContextCheckbox.checked;
     const temperature = parseFloat(temperatureSlider.value);
-    const files = imageUploadInput.files; // Get the FileList
+    const files = imageUploadInput.files;
 
     // --- Input Validation ---
     if (!baseDir) {
-        if (typeof addLogMessage === 'function') addLogMessage('Please enter a Base Directory.', 'error');
+        if (typeof addLogMessage === 'function') addLogMessage('Please enter a Base Directory.', 'error', true); // Bubble
         baseDirInput.focus();
         return;
     }
     if (!prompt) {
-        if (typeof addLogMessage === 'function') addLogMessage('Please enter Your Instructions.', 'error');
+        if (typeof addLogMessage === 'function') addLogMessage('Please enter Your Instructions.', 'error', true); // Bubble
         promptInput.focus();
         return;
     }
-
-    // Check socket connection
     if (!currentSocket || !currentSocket.connected) {
-        if (typeof addLogMessage === 'function') addLogMessage('Error: Not connected to server. Cannot start task.', 'error');
-        // Maybe attempt to reconnect or prompt user? For now, just error out.
+        if (typeof addLogMessage === 'function') addLogMessage('Error: Not connected to server. Cannot start task.', 'error', true); // Bubble
         return;
     }
+    // --- End Validation ---
 
-    // --- Task Management (Save/Update Task State) ---
     let currentTask = null;
     let taskTitle = "Untitled Task";
-    // Check if task management functions are available
-    const taskManagerAvailable = typeof selectedTaskId !== 'undefined' &&
-                                 typeof tasks !== 'undefined' &&
-                                 typeof generateTaskTitle === 'function' &&
-                                 typeof saveTasks === 'function' &&
-                                 typeof renderTaskList === 'function';
+    const taskManagerAvailable = typeof selectedTaskId !== 'undefined' && typeof tasks !== 'undefined' &&
+                                typeof generateTaskTitle === 'function' && typeof saveTasks === 'function' &&
+                                typeof renderTaskList === 'function';
 
     if (!taskManagerAvailable) {
-         if (typeof addLogMessage === 'function') addLogMessage('Warning: Task management features unavailable. Task will not be saved.', 'warn');
+        if (typeof addLogMessage === 'function') addLogMessage('Warning: Task management features unavailable. Task will not be saved.', 'warn', true); // Bubble
     } else {
         taskTitle = generateTaskTitle(prompt);
-
         if (selectedTaskId === 'new') {
-            // Create a new task object
+            // Create new task
             const newTaskId = String(Date.now()); // Simple unique ID
-            currentTask = {
-                id: newTaskId,
-                title: taskTitle,
-                baseDir,
-                prompt,
-                continueContext,
-                temperature
-            };
-            tasks.unshift(currentTask); // Add to the beginning of the list
-            selectedTaskId = newTaskId; // Select the newly created task
+            currentTask = { id: newTaskId, title: taskTitle, baseDir, prompt, continueContext, temperature };
+            tasks.unshift(currentTask); // Add to the beginning of the array
+            selectedTaskId = newTaskId; // Select the new task
             saveTasks();
-            renderTaskList(); // Update UI list
-            if (typeof addLogMessage === 'function') addLogMessage(`✨ Created and selected new task: "${taskTitle}"`, "info");
+            renderTaskList();
+            if (typeof addLogMessage === 'function') addLogMessage(`✨ Created and selected new task: "${taskTitle}"`, "info", true); // Bubble
         } else {
-            // Find the existing selected task
+            // Update existing selected task if necessary
             currentTask = tasks.find(t => String(t.id) === String(selectedTaskId));
             if (currentTask) {
-                // Check if any relevant fields have changed
-                 const needsUpdate = currentTask.baseDir !== baseDir ||
+                const needsUpdate = currentTask.baseDir !== baseDir ||
                                     currentTask.prompt !== prompt ||
                                     currentTask.continueContext !== continueContext ||
                                     currentTask.temperature !== temperature ||
-                                    currentTask.title !== taskTitle; // Also update title if prompt changed
-
-                 if (needsUpdate) {
+                                    currentTask.title !== taskTitle; // Update title if prompt changed enough
+                if (needsUpdate) {
                     currentTask.baseDir = baseDir;
                     currentTask.prompt = prompt;
                     currentTask.continueContext = continueContext;
                     currentTask.temperature = temperature;
-                    currentTask.title = taskTitle; // Update title based on potentially new prompt
+                    currentTask.title = taskTitle; // Update title based on current prompt
                     saveTasks();
-                    renderTaskList(); // Update UI list (especially title might change)
-                    if (typeof addLogMessage === 'function') addLogMessage(`🔄 Updated task "${taskTitle}" with current settings.`, "info");
-                 }
+                    renderTaskList(); // Re-render to reflect potential title change
+                    if (typeof addLogMessage === 'function') addLogMessage(`🔄 Updated task "${taskTitle}" with current settings.`, "info", true); // Bubble
+                }
             } else {
-                // This case should be rare if UI is synced, but handle it
-                if (typeof addLogMessage === 'function') addLogMessage(`Error: Could not find selected task ${selectedTaskId} to update/run. Starting as new task.`, 'error');
-                selectedTaskId = 'new'; // Reset to new task state
-                if(typeof saveTasks === 'function') saveTasks(); // Save the reset selection
+                // Should not happen if UI is synced, but handle gracefully
+                if (typeof addLogMessage === 'function') addLogMessage(`Error: Could not find selected task ${selectedTaskId} to update/run. Starting as new task.`, 'error', true); // Bubble
+                selectedTaskId = 'new';
+                if(typeof saveTasks === 'function') saveTasks();
                 if(typeof renderTaskList === 'function') renderTaskList();
-                 // Don't proceed with running the non-existent task ID
-                return;
+                return; // Don't proceed with task start
             }
         }
     }
-    // --- End Task Management ---
 
-
-    // --- Prepare UI for Task Start ---
-    // Clear logs *only* if not continuing context. Context is managed by its own system now.
+    // Clear logs if not continuing context
     if (!continueContext) {
-        if (logOutput) logOutput.innerHTML = ''; // Clear logs
-        // Note: We DON'T clear context display here anymore. It's either loaded from storage or managed by task selection.
-        // if (typeof updateContextDisplay === 'function') updateContextDisplay([]); // OLD - REMOVED
+        if (logOutput) logOutput.innerHTML = '';
+        // Also clear stored context if applicable
+        if (typeof clearContextAndStorage === 'function') clearContextAndStorage();
     } else {
-         if (typeof addLogMessage === 'function') addLogMessage('ℹ️ Continue Context is enabled. Previous context (if any) should be visible.', 'info');
-         // Context should already be loaded from localStorage or will be updated by server
+        if (typeof addLogMessage === 'function') addLogMessage('ℹ️ Continue Context is enabled. Previous context (if any) should be visible.', 'info', true); // Bubble
     }
 
-    if (typeof addLogMessage === 'function') addLogMessage('🚀 Preparing task...', 'info');
-    if (typeof setControlsEnabled === 'function') setControlsEnabled(false); // Disable UI
+    if (typeof addLogMessage === 'function') addLogMessage('🚀 Preparing task...', 'info', true); // Bubble
+    if (typeof setControlsEnabled === 'function') setControlsEnabled(false); // Disable controls
     if (typeof hideFeedback === 'function') hideFeedback(); // Hide any open modals
     if (typeof hideQuestionInput === 'function') hideQuestionInput();
 
-    // --- File Upload (if files selected) ---
-    let uploadedFileNames = []; // Will store names of successfully uploaded files server-side
+    // --- File Upload (if necessary) ---
+    let uploadedFileNames = [];
     if (files && files.length > 0) {
-        if (typeof addLogMessage === 'function') addLogMessage(`⏳ Uploading ${files.length} file(s)...`, 'info');
+        if (typeof addLogMessage === 'function') addLogMessage(`⏳ Uploading ${files.length} file(s)...`, 'info', true); // Bubble
         const formData = new FormData();
         for (let i = 0; i < files.length; i++) {
             formData.append('images', files[i]); // Use 'images' as the field name expected by server
         }
 
         try {
-            const response = await fetch('/upload', { // POST to the /upload endpoint
-                method: 'POST',
-                body: formData
-            });
-            const result = await response.json(); // Assume server responds with JSON
+            const response = await fetch('/upload', { method: 'POST', body: formData });
+            const result = await response.json();
 
             if (response.ok) {
-                if (typeof addLogMessage === 'function') addLogMessage(`✅ ${result.message || 'Files uploaded.'}`, 'success');
-                uploadedFileNames = result.files || []; // Get the list of server-side filenames
-                 if (uploadedFileNames.length > 0 && typeof addLogMessage === 'function') {
-                    addLogMessage(` Uploaded file references: ${uploadedFileNames.join(', ')}`, 'debug');
-                 }
+                if (typeof addLogMessage === 'function') addLogMessage(`✅ ${result.message || 'Files uploaded.'}`, 'success', true); // Bubble
+                uploadedFileNames = result.files || [];
+                if (uploadedFileNames.length > 0 && typeof addLogMessage === 'function') {
+                     // Keep debug logs plain
+                    addLogMessage(`Uploaded file references: ${uploadedFileNames.join(', ')}`, 'debug');
+                }
             } else {
-                // Handle upload failure
-                 if (typeof addLogMessage === 'function') addLogMessage(`❌ Upload failed: ${result.message || response.statusText}`, 'error');
-                 if (typeof setControlsEnabled === 'function') setControlsEnabled(true); // Re-enable UI
-                 return; // Stop task start process
+                if (typeof addLogMessage === 'function') addLogMessage(`❌ Upload failed: ${result.message || response.statusText}`, 'error', true); // Bubble
+                if (typeof setControlsEnabled === 'function') setControlsEnabled(true); // Re-enable controls on failure
+                return; // Stop task start
             }
         } catch (error) {
-            // Handle network or other fetch errors
             console.error("Network or fetch error during upload:", error);
-            if (typeof addLogMessage === 'function') addLogMessage(`❌ Network error during upload: ${error.message}. Check server connection.`, 'error');
-            if (typeof setControlsEnabled === 'function') setControlsEnabled(true); // Re-enable UI
-            return; // Stop task start process
+            if (typeof addLogMessage === 'function') addLogMessage(`❌ Network error during upload: ${error.message}. Check server connection.`, 'error', true); // Bubble
+            if (typeof setControlsEnabled === 'function') setControlsEnabled(true); // Re-enable controls on failure
+            return; // Stop task start
         }
     }
+    // --- End File Upload ---
 
-    // --- Emit Start Task Event to Server ---
-    if (typeof addLogMessage === 'function') addLogMessage('📡 Sending task details to server...', 'info');
+    if (typeof addLogMessage === 'function') addLogMessage('📡 Sending task details to server...', 'info', true); // Bubble
+
     const taskData = {
         baseDir,
         prompt,
         continueContext,
         temperature,
-        uploadedFiles: uploadedFileNames // Send the list of server filenames
+        uploadedFiles: uploadedFileNames // Send the list of uploaded filenames
     };
+
+    // Emit the task start event to the server
     currentSocket.emit('start-task', taskData);
 
-    // --- Final UI Cleanup for this action ---
-    // Clear file input *after* successful upload and task start emit
+    // Clear the file input visually after upload/task start
     if (imageUploadInput) imageUploadInput.value = '';
-    // Update the file attachment button text/title
     if (typeof updateUploadTriggerText === 'function') updateUploadTriggerText();
 }
 
-
-// --- Handle Temperature Slider Change ---
 function handleTemperatureChange() {
     if (temperatureSlider && temperatureValueSpan) {
         const tempValue = parseFloat(temperatureSlider.value).toFixed(1);
         temperatureValueSpan.textContent = tempValue;
 
-        // Optional: Update the current task's temperature in memory immediately
-         if (typeof selectedTaskId !== 'undefined' && selectedTaskId !== 'new' && typeof tasks !== 'undefined') {
-            const task = tasks.find(t => String(t.id) === String(selectedTaskId));
-            if (task && task.temperature !== parseFloat(tempValue)) {
+        // Update the temperature in the selected task object if task manager is available
+        const taskManagerAvailable = typeof selectedTaskId !== 'undefined' && typeof tasks !== 'undefined';
+         if (taskManagerAvailable && selectedTaskId !== 'new') {
+             const task = tasks.find(t => String(t.id) === String(selectedTaskId));
+             if (task && task.temperature !== parseFloat(tempValue)) {
                  task.temperature = parseFloat(tempValue);
-                 // Maybe add a visual cue or saveTasks() here if desired? For now, just update memory.
-                 // saveTasks(); // Persist change immediately? Could be annoying. Better to save on start.
-            }
+                 // Optionally save tasks immediately on temp change, or wait until task start
+                 // if(typeof saveTasks === 'function') saveTasks();
+             }
          }
     }
 }
 
-
-// --- DOMContentLoaded Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM fully loaded. Initializing client...');
 
-    // --- Get Core Element References ---
+    // --- Get Core UI Element References ---
     baseDirInput = document.getElementById('baseDir');
     promptInput = document.getElementById('prompt');
     continueContextCheckbox = document.getElementById('continueContext');
@@ -205,67 +177,72 @@ document.addEventListener('DOMContentLoaded', () => {
     startButton = document.getElementById('startButton');
     logOutput = document.getElementById('logOutput');
     imageUploadInput = document.getElementById('imageUpload');
+    // --- End Element References ---
 
-    // --- Fatal Error Check ---
-    // Check if essential elements are present
+    // Fatal error check if core elements are missing
     if (!baseDirInput || !promptInput || !startButton || !logOutput) {
         console.error("FATAL: Core UI elements (baseDir, prompt, startButton, logOutput) not found on page load. Application might not function.");
-        // Display a prominent error to the user
         document.body.innerHTML = '<h1 style="color:red; font-family: sans-serif;">Error: Application UI failed to load correctly. Check console.</h1>';
-        return; // Stop further initialization
+        return;
     }
 
-    // --- Initialize Modules ---
-    // Order matters for dependencies (e.g., logger used by others)
-    if (typeof loadTheme === 'function') loadTheme(); else console.warn("loadTheme function not found."); // Theme first
+    // --- Initialize Modules & UI ---
+    if (typeof loadTheme === 'function') loadTheme(); else console.warn("loadTheme function not found.");
+    if (typeof loadContextFromLocalStorage === 'function') loadContextFromLocalStorage(); else console.warn("loadContextFromLocalStorage function not found. Context persistence disabled.");
+    if (typeof loadTasks === 'function') loadTasks(); else console.warn("loadTasks function not found.");
+    if (typeof renderTaskList === 'function') renderTaskList(); else console.warn("renderTaskList function not found."); // loadTasks calls renderTaskList internally now
+    if (typeof setupFileUploadAndDragDrop === 'function') setupFileUploadAndDragDrop(); else console.warn("setupFileUploadAndDragDrop function not found.");
 
-    // **MODIFICATION START**: Load context BEFORE task manager (which might clear it)
-    if (typeof loadContextFromLocalStorage === 'function') {
-        loadContextFromLocalStorage(); // Load context from previous session if available
-    } else {
-        console.warn("loadContextFromLocalStorage function not found. Context persistence disabled.");
-    }
-    // **MODIFICATION END**
-
-    if (typeof loadTasks === 'function') loadTasks(); else console.warn("loadTasks function not found."); // Load saved tasks (might clear context if task selection changes)
-    if (typeof renderTaskList === 'function') renderTaskList(); else console.warn("renderTaskList function not found."); // Render task list (needs loaded tasks)
-    if (typeof setupFileUploadAndDragDrop === 'function') setupFileUploadAndDragDrop(); else console.warn("setupFileUploadAndDragDrop function not found."); // Setup file handling
-    if (typeof initializeSocket === 'function') { // Initialize WebSocket connection
-        currentSocket = initializeSocket();
+    // Initialize Socket.IO connection
+    if (typeof initializeSocket === 'function') {
+        currentSocket = initializeSocket(); // Assuming initializeSocket returns the socket instance
         if (!currentSocket) {
             console.error("Socket initialization failed. Real-time features disabled.");
-            // UI should reflect lack of connection (e.g., disable start button)
-             if(typeof addLogMessage === 'function') addLogMessage("Error: Failed to initialize server connection.", 'error');
-             if(typeof setControlsEnabled === 'function') setControlsEnabled(false);
-        } else {
-             // If socket connects later, 'connect' event handler should enable controls
-             if(typeof addLogMessage === 'function') { /* Log handled by connect event */ }
+            if(typeof addLogMessage === 'function') addLogMessage("Error: Failed to initialize server connection.", 'error', true); // Bubble
+            if(typeof setControlsEnabled === 'function') setControlsEnabled(false);
         }
+        // No else needed for success message, handled by socket 'connect' event
     } else {
         console.error("initializeSocket function not found. Cannot connect to server.");
-        if(typeof addLogMessage === 'function') addLogMessage("Error: Cannot initialize server connection.", 'error');
+        if(typeof addLogMessage === 'function') addLogMessage("Error: Cannot initialize server connection.", 'error', true); // Bubble
         if(typeof setControlsEnabled === 'function') setControlsEnabled(false);
     }
 
-    // --- Initial UI State ---
-    if (typeof hideFeedback === 'function') hideFeedback(); // Ensure modals are hidden initially
+    // Initial UI state setup
+    if (typeof hideFeedback === 'function') hideFeedback();
     if (typeof hideQuestionInput === 'function') hideQuestionInput();
-    if (typeof updateUploadTriggerText === 'function') updateUploadTriggerText(); // Set initial state of file button
-    // Note: Context display is handled by loadContextFromLocalStorage and taskManager selection now
-    // if (typeof updateContextDisplay === 'function') updateContextDisplay([]); // OLD - REMOVED
+    if (typeof updateUploadTriggerText === 'function') updateUploadTriggerText();
+    // Ensure controls are enabled initially (unless socket connection failed)
+    if (currentSocket && typeof setControlsEnabled === 'function') setControlsEnabled(true);
 
-    // --- Attach Core Event Listeners ---
+
+    // --- Add Event Listeners ---
     if (startButton) {
         startButton.addEventListener('click', handleStartTaskClick);
     }
     if (temperatureSlider) {
-        temperatureSlider.addEventListener('input', handleTemperatureChange); // Use 'input' for real-time updates
+        temperatureSlider.addEventListener('input', handleTemperatureChange);
+        // Initial display update for temperature
+        handleTemperatureChange();
     }
+    // Other module-specific listeners (like modals) are set up within their respective files
+    // --- End Event Listeners ---
 
     console.log('Client-side initialization sequence complete.');
+});
 
-    // Final check: Enable controls only if socket connection is likely established or will be soon
-    // The 'connect' event in socketHandlerClient.js is the primary place to enable controls now.
-    // We can leave them disabled here initially.
-    // if (typeof setControlsEnabled === 'function') setControlsEnabled(true); // Let socket connect event handle enabling
+// ... (existing code for handleStartTaskClick, handleTemperatureChange, etc.)...
+
+// Add exports for the functions the test needs
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        handleStartTaskClick,
+        handleTemperatureChange
+        // Export others if your tests evolve to need them
+    };
+}
+
+// Keep the DOMContentLoaded listener as it is for browser execution
+document.addEventListener('DOMContentLoaded', () => {
+   // ... (existing DOMContentLoaded code) ...
 });

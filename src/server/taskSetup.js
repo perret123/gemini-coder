@@ -2,16 +2,16 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 const ignore = require('ignore');
 const mime = require('mime-types');
-const { emitLog, getDirectoryStructure, emitContextLog } = require('./utils'); // Added emitContextLog
-const { createFileSystemHandlers, loadGitignore } = require('./fileSystem'); // Added loadGitignore
+const { emitLog, getDirectoryStructure, emitFullContextUpdate } = require('./utils');
+const { createFileSystemHandlers, loadGitignore } = require('./fileSystem');
 const { runGeminiTask } = require('./geminiTaskRunner');
 const { model, getToolsDefinition } = require('./geminiSetup');
 
 const UPLOAD_DIR = path.resolve(__dirname, '../../uploads');
 
-// --- Build Initial Prompt ---
+// Function to build the system prompt parts
 function buildInitialPrompt(BASE_DIR, structureString) {
-    const coreRoleText = `You are an AI assistant specialized in **precise file system modifications**. Your primary goal is to execute the user's instructions by interacting with the file system within a strictly defined **Base Directory** using only the provided **Tools**.
+    const coreRoleText = `You are an AI assistant programmer specialized in **precise file system modifications**. Your primary goal is to execute the user's instructions by interacting with the file system within a strictly defined **Base Directory** using only the provided **Tools**.
 **Base Directory:** \`${BASE_DIR}\` (All file paths MUST be relative to this directory).
 **Critical Rule:** You **MUST** operate exclusively using the provided **Tools** (function calls). Tool mode is set to 'ANY', meaning you **MUST** respond with a function call. Use \`task_finished\` to end the task. Use \`showInformationTextToUser\` for ALL intermediate status updates, plans, or observations. **DO NOT** output raw text unless it is the 'finalMessage' argument of the 'task_finished' function.`;
 
@@ -25,7 +25,7 @@ ${structureString || '- (Directory is empty or initial scan found no relevant fi
 *   **Reading/Searching:**
     *   \`readFileContent(filePath)\`: Get full content of one RELATIVE file path.
     *   \`listFiles(directoryPath?)\`: List files/subdirs in a RELATIVE directory (default: base). Respects .gitignore.
-    *   \`searchFiles(pattern)\`: Find files by RELATIVE glob pattern (e.g., \`src/**/*.js\`). Respects .gitignore.
+    *   \`searchFiles(pattern)\`: Find files by RELATIVE glob pattern (e.g., \`src/*.js\`). Respects .gitignore.
     *   \`searchFilesByRegex(regexString, directoryPath?)\`: Search file *content* with RELATIVE JS regex (e.g., \`/myFunc/gi\`). Respects .gitignore.
 *   **Writing/Modification (Requires User Confirmation unless 'yes/all'):**
     *   \`writeFileContent(filePath, content)\`: Write/Overwrite a RELATIVE file with FULL content.
@@ -53,266 +53,276 @@ ${structureString || '- (Directory is empty or initial scan found no relevant fi
     return { coreRoleText, structureContextText, toolsInfoText, rulesAndProcessText };
 }
 
-
-// --- Main Task Setup Function ---
+// Main function to set up and kick off the task
 async function setupAndStartTask(socket, data, state) {
     const { taskStates, activeChatSessions, connectionState } = state;
     const { confirmAllRef, feedbackResolverRef, questionResolverRef, currentChangesLogRef, currentBaseDirRef, currentOriginalPromptRef } = connectionState;
 
     console.log(`Processing start-task request for ${socket.id}...`);
-    console.debug("Task data received:", { ...data, prompt: data.prompt ? data.prompt.substring(0, 50) + '...' : '' });
+    console.debug("Task data received:", { ...data, prompt: data.prompt ? data.prompt.substring(0, 50) + '...' : '', uploadedFiles: data.uploadedFiles?.length });
 
-    // --- Reset connection-specific state ---
+    // Reset connection-specific state for the new task
     confirmAllRef.value = false;
     feedbackResolverRef.value = null;
     questionResolverRef.value = null;
-    currentChangesLogRef.value = []; // Reset changes log for this run
-    currentBaseDirRef.value = null; // Reset base dir ref
-    currentOriginalPromptRef.value = null; // Reset original prompt ref
+    currentChangesLogRef.value = [];
+    currentBaseDirRef.value = null;
+    currentOriginalPromptRef.value = null;
 
-    // --- Extract and Validate Input Data ---
+    // Extract data from the client request
     const relativeBaseDir = data.baseDir?.trim();
     const userPrompt = data.prompt?.trim();
     const continueContext = data.continueContext || false;
     const uploadedFiles = data.uploadedFiles || [];
     const temperature = data.temperature ?? 1; // Default temperature
 
+    // Basic validation
     if (!userPrompt || !relativeBaseDir) {
         const missing = !userPrompt ? "Your Instructions (prompt)" : "Base Directory";
-        emitLog(socket, `Error: ${missing} cannot be empty.`, 'error');
+        // ADDED isAction flag
+        emitLog(socket, `Error: ${missing} cannot be empty.`, 'error', true);
         socket.emit('task-error', { message: `${missing} is required.` });
         return;
     }
 
     let BASE_DIR;
     try {
-        // --- Resolve and Validate Base Directory ---
+        // Resolve and validate the base directory
         BASE_DIR = path.resolve(relativeBaseDir);
-        currentBaseDirRef.value = BASE_DIR; // Store resolved path
-        emitLog(socket, `Resolved Base Directory: ${BASE_DIR}`, 'info');
-        // Initial context log entry
-        emitContextLog(socket, 'initial_prompt', `Task Started. Base Dir: ${BASE_DIR}`);
-        emitContextLog(socket, 'initial_prompt', `Prompt: ${userPrompt.substring(0,100)}${userPrompt.length > 100 ? '...' : ''}`);
+        currentBaseDirRef.value = BASE_DIR; // Store resolved path for this connection
+        // ADDED isAction flag
+        emitLog(socket, `Resolved Base Directory: ${BASE_DIR}`, 'info', true);
 
+        // Use updated emitFullContextUpdate structure
+        emitFullContextUpdate(socket, { type: 'initial_prompt', text: `Task Started. Base Dir: ${BASE_DIR}` });
+        emitFullContextUpdate(socket, { type: 'initial_prompt', text: `Prompt: ${userPrompt.substring(0, 100)}${userPrompt.length > 100 ? '...' : ''}` });
 
         const stats = await fs.stat(BASE_DIR);
         if (!stats.isDirectory()) {
             throw new Error(`Specified base path exists but is not a directory.`);
         }
-        emitLog(socket, `✅ Base directory confirmed: ${BASE_DIR}`, 'success');
+        // ADDED isAction flag
+        emitLog(socket, `✅ Base directory confirmed: ${BASE_DIR}`, 'success', true);
 
-        // --- Load .gitignore and Get Initial Structure ---
-        const ig = await loadGitignore(BASE_DIR, socket); // Use helper from fileSystem
-        emitLog(socket, `Scanning directory structure (max depth 2)...`, 'info');
-        let structureLines = await getDirectoryStructure(BASE_DIR, BASE_DIR, ig, 2); // Max depth 2
-        const structureString = structureLines.join('\\n');
-        emitLog(socket, `Initial Directory Structure (filtered):\\n${structureString || '(empty or all ignored)'}`, 'info');
-        // emitContextLog(socket, 'initial_state', `Scanned Structure:\\n${structureString || '(empty)'}`); // Maybe too verbose for context
+        // Load .gitignore rules
+        const ig = await loadGitignore(BASE_DIR, socket); // loadGitignore already logs debug info
+
+        // Get initial directory structure
+        // ADDED isAction flag
+        emitLog(socket, `Scanning directory structure (max depth 2)...`, 'info', true);
+        let structureLines = await getDirectoryStructure(BASE_DIR, BASE_DIR, ig, 2);
+        const structureString = structureLines.join('\n');
+        // ADDED isAction flag (for the structure itself)
+        emitLog(socket, `Initial Directory Structure (filtered):\n${structureString || '(empty or all ignored)'}`, 'info', true);
 
         // --- Process Uploaded Images ---
         const imageParts = [];
         if (Array.isArray(uploadedFiles) && uploadedFiles.length > 0) {
-            emitLog(socket, `Processing ${uploadedFiles.length} uploaded image reference(s)...`, 'info');
-            emitContextLog(socket, 'initial_prompt', `Processing ${uploadedFiles.length} image(s)`);
+            // ADDED isAction flag
+            emitLog(socket, `Processing ${uploadedFiles.length} uploaded image reference(s)...`, 'info', true);
+            emitFullContextUpdate(socket, { type: 'initial_prompt', text: `Processing ${uploadedFiles.length} image(s)` });
+
             for (const filename of uploadedFiles) {
-                 // Basic security check on filename
-                 if (!filename || filename.includes('/') || filename.includes('\\\\') || filename.includes('..')) {
-                     emitLog(socket, ` - ⚠️ Skipping potentially unsafe filename '${filename}'.`, 'warn');
-                     continue;
-                 }
+                // Basic security check on filename
+                if (!filename || filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+                    // ADDED isAction flag
+                    emitLog(socket, ` - ⚠️ Skipping potentially unsafe filename '${filename}'.`, 'warn', true);
+                    continue;
+                }
                 const filePath = path.join(UPLOAD_DIR, filename);
                 try {
-                    await fs.access(filePath); // Check if file exists server-side
+                    await fs.access(filePath); // Check if file exists
                     const fileBuffer = await fs.readFile(filePath);
-                    const mimeType = mime.lookup(filePath) || 'application/octet-stream';
+                    const mimeType = mime.lookup(filePath) || 'application/octet-stream'; // Determine MIME type
 
                     if (mimeType.startsWith('image/')) {
-                         imageParts.push({ inlineData: { data: fileBuffer.toString('base64'), mimeType: mimeType } });
-                         emitLog(socket, ` - Added image '${filename}' (${mimeType}, ${Math.round(fileBuffer.length / 1024)} KB).`, 'info');
+                        imageParts.push({ inlineData: { data: fileBuffer.toString('base64'), mimeType: mimeType } });
+                        // ADDED isAction flag
+                        emitLog(socket, ` - Added image '${filename}' (${mimeType}, ${Math.round(fileBuffer.length / 1024)} KB).`, 'info', true);
                     } else {
-                         emitLog(socket, ` - ⚠️ Skipping non-image file '${filename}' (type: ${mimeType}).`, 'warn');
+                        // ADDED isAction flag
+                        emitLog(socket, ` - ⚠️ Skipping non-image file '${filename}' (type: ${mimeType}).`, 'warn', true);
                     }
                 } catch (fileError) {
-                     if (fileError.code === 'ENOENT') {
-                         emitLog(socket, ` - ⚠️ Error: Uploaded file reference not found on server: '${filename}'. Skipping.`, 'error');
-                     } else {
-                         emitLog(socket, ` - ⚠️ Error processing uploaded file '${filename}': ${fileError.message}`, 'error');
-                     }
-                 }
+                    if (fileError.code === 'ENOENT') {
+                        // ADDED isAction flag
+                        emitLog(socket, ` - ⚠️ Error: Uploaded file reference not found on server: '${filename}'. Skipping.`, 'error', true);
+                    } else {
+                        // ADDED isAction flag
+                        emitLog(socket, ` - ⚠️ Error processing uploaded file '${filename}': ${fileError.message}`, 'error', true);
+                    }
+                }
             }
-            emitLog(socket, `Processed ${imageParts.length} valid image(s) for Gemini input.`, 'info');
+            // ADDED isAction flag
+            emitLog(socket, `Processed ${imageParts.length} valid image(s) for Gemini input.`, 'info', true);
         }
+        // --- End Image Processing ---
 
-        // --- Prepare Chat Session and Initial Message ---
+
+        // --- Initialize Chat Session and History ---
         let chatSession;
-        let initialMessageParts = [];
-        let contextChangesToSend = []; // For initial client display if resuming
+        let initialMessageParts = []; // Parts for the *first* message to Gemini
+        let historyForGemini = []; // History *before* the first message
+        let contextChangesToSend = []; // Changes to send to client UI
 
-        // Get Tool definitions and config
-        const tools = getToolsDefinition(BASE_DIR); // Returns { functionDeclarations: [...] }
+        const tools = getToolsDefinition(BASE_DIR);
         const toolConfig = { functionCallingConfig: { mode: "ANY" } }; // Force function calling
 
         if (continueContext && activeChatSessions.has(socket.id)) {
-            // Option 1: Continue in-memory session (if same socket connection)
-             chatSession = activeChatSessions.get(socket.id);
-             emitLog(socket, "🔄 Continuing previous active chat session (in-memory).", 'info');
-             // Send only the new user prompt and images
-             initialMessageParts = [{ text: `User Request (Continue Task): \"${userPrompt}\"` }, ...imageParts];
-             currentOriginalPromptRef.value = userPrompt; // Update prompt ref for this segment
-             // Get current state for context display
-              const savedState = taskStates.get(BASE_DIR);
-              contextChangesToSend = savedState?.changes || [];
-              emitContextLog(socket, 'resume_prompt', `Continuing Task...`);
+            // Option 1: Continue in-memory session (if available and requested)
+            chatSession = activeChatSessions.get(socket.id);
+            // ADDED isAction flag
+            emitLog(socket, "🔄 Continuing previous active chat session (in-memory).", 'info', true);
+            // The user prompt is the next message, along with any images
+            initialMessageParts = [{ text: `User Request (Continue Task): "${userPrompt}"` }, ...imageParts];
+            currentOriginalPromptRef.value = userPrompt; // Update original prompt for this continuation segment? Or keep the very first? Let's update for now.
 
+            // Load context from task state to send to UI if needed
+            const savedState = taskStates.get(BASE_DIR);
+            contextChangesToSend = savedState?.changes || [];
+            emitFullContextUpdate(socket, { type: 'resume_prompt', text: `Continuing Task...` });
 
         } else if (continueContext && taskStates.has(BASE_DIR)) {
-            // Option 2: Resume from saved state (different connection or cleared memory)
+            // Option 2: Resume from saved state (if available and requested, but no active session)
             const savedState = taskStates.get(BASE_DIR);
-            currentOriginalPromptRef.value = savedState.originalPrompt; // Restore original prompt for context
-            contextChangesToSend = savedState.changes || []; // Load previous changes
+            currentOriginalPromptRef.value = savedState.originalPrompt; // Keep the original prompt
+            contextChangesToSend = savedState.changes || [];
 
             const changesSummary = contextChangesToSend.length > 0
-                ? contextChangesToSend.map(c => `- ${c.type}: ${c.filePath || c.directoryPath || 
-`${c.sourcePath} -> ${c.destinationPath}`}`).join('\\n')
+                ? contextChangesToSend.map(c => `- ${c.type}: ${c.filePath || c.directoryPath || `${c.sourcePath} -> ${c.destinationPath}`}`).join('\n')
                 : '(None recorded)';
 
-            const resumePreamble = `You are resuming a previous task for the base directory '${BASE_DIR}'.\r\n**Original User Request:** \"${savedState.originalPrompt}\"\r\n**Previously Applied Changes:**\r\n${changesSummary}\r\n---\r\n**Current User Request (Continue Task):** \"${userPrompt}\"\r\n---\r\nAnalyze the current request in the context of the original goal and previous changes, then proceed using function calls. Remember to call 'task_finished' when done.`;
+            const resumePreamble = `You are resuming a previous task for the base directory '${BASE_DIR}'.\r\n**Original User Request:** "${savedState.originalPrompt}"\r\n**Previously Applied Changes:**\r\n${changesSummary}\r\n---\r\n**Current User Request (Continue Task):** "${userPrompt}"\r\n---\r\nAnalyze the current request in the context of the original goal and previous changes, then proceed using function calls. Remember to call 'task_finished' when done.`;
 
-            emitLog(socket, `🔄 Resuming task from saved state for ${BASE_DIR}. Original Goal: \"${savedState.originalPrompt}\"`, 'info');
-            if (changesSummary !== '(None recorded)') emitLog(socket, `ℹ️ Previous changes loaded:\\n${changesSummary}`, 'info');
-            emitContextLog(socket, 'resume_prompt', `Resuming Task (Original: ${savedState.originalPrompt.substring(0,50)}...)`);
+            // ADDED isAction flag
+            emitLog(socket, `🔄 Resuming task from saved state for ${BASE_DIR}. Original Goal: "${savedState.originalPrompt}"`, 'info', true);
+            if (changesSummary !== '(None recorded)') {
+                // ADDED isAction flag
+                emitLog(socket, `ℹ️ Previous changes loaded:\n${changesSummary}`, 'info', true);
+            }
+            emitFullContextUpdate(socket, { type: 'resume_prompt', text: `Resuming Task (Original: ${savedState.originalPrompt.substring(0, 50)}...)` });
 
-            // Clear any old in-memory session for this socket
+            // Clear any lingering in-memory session if we are resuming from storage
             if (activeChatSessions.has(socket.id)) {
-                 emitLog(socket, "🧹 Clearing previous in-memory session before resuming from saved state.", 'debug');
-                 activeChatSessions.delete(socket.id);
+                emitLog(socket, "🧹 Clearing previous in-memory session before resuming from saved state.", 'debug'); // Not bubble
+                activeChatSessions.delete(socket.id);
             }
 
-            // Start a new chat session with the resume preamble
-            chatSession = model.startChat({
-                 tools: [tools], // Pass the array of FunctionDeclaration objects
-                 toolConfig: toolConfig, // Force ANY mode
-                 history: [] // Start fresh history with resume context
-             });
-             activeChatSessions.set(socket.id, chatSession);
-             initialMessageParts = [{ text: resumePreamble }, ...imageParts];
+            // Start a new chat session for the resume
+            chatSession = model.startChat({ tools: [tools], toolConfig: toolConfig, history: [] }); // Start fresh, preamble contains context
+            activeChatSessions.set(socket.id, chatSession);
+            initialMessageParts = [{ text: resumePreamble }, ...imageParts];
 
         } else {
-            // Option 3: Start a fresh task
-            currentOriginalPromptRef.value = userPrompt; // Store the prompt for state saving
-            contextChangesToSend = []; // No initial context changes
+            // Option 3: Start a new task (default or if continueContext is false/unavailable)
+            currentOriginalPromptRef.value = userPrompt; // This is the original prompt
+            contextChangesToSend = []; // No previous context for UI
 
             const { coreRoleText, structureContextText, toolsInfoText, rulesAndProcessText } = buildInitialPrompt(BASE_DIR, structureString);
-            const initialUserRequestText = `**Begin Task Execution for User Request:**\\n\"${userPrompt}\"`;
+            const initialUserRequestText = `**Begin Task Execution for User Request:**\n"${userPrompt}"`;
 
-            // Clear any old session or state if not continuing
+            // Clear any old session/state if starting fresh
             if (activeChatSessions.has(socket.id)) {
-                emitLog(socket, "🧹 Starting new task, clearing previous in-memory session.", 'debug');
+                emitLog(socket, "🧹 Starting new task, clearing previous in-memory session.", 'debug'); // Not bubble
                 activeChatSessions.delete(socket.id);
             }
             if (!continueContext && taskStates.has(BASE_DIR)) {
-                emitLog(socket, `🗑️ Clearing saved state for ${BASE_DIR} as 'Continue Context' is unchecked.`, 'info');
-                 taskStates.delete(BASE_DIR);
+                // ADDED isAction flag
+                emitLog(socket, `🗑️ Clearing saved state for ${BASE_DIR} as 'Continue Context' is unchecked.`, 'info', true);
+                taskStates.delete(BASE_DIR);
             }
 
-            emitLog(socket, "✨ Starting new chat session.", 'info');
+            // ADDED isAction flag
+            emitLog(socket, "✨ Starting new chat session.", 'info', true);
+
+            // Initialize chat with system instruction and context
             chatSession = model.startChat({
-                tools: [tools], // Pass the array of FunctionDeclaration objects
-                toolConfig: toolConfig, // Force ANY mode
-                // history: [] // Start with empty history
-                // Optionally include system instruction here if preferred over message parts
-                 systemInstruction: { role: "system", parts: [{ text: coreRoleText + "\\n" + rulesAndProcessText }] },
-                 history: [
-                     { role: "user", parts: [{ text: structureContextText + "\\n" + toolsInfoText }] }, // Provide context as 'user' turn? Or system?
-                     // Let's try sending the core rules as system instruction, context/tools as user, then the real prompt.
-                 ]
+                tools: [tools],
+                toolConfig: toolConfig,
+                systemInstruction: { role: "system", parts: [{ text: coreRoleText + "\n" + rulesAndProcessText }] },
+                history: [
+                    { role: "user", parts: [{ text: structureContextText + "\n" + toolsInfoText }] },
+                     // Optionally add an empty model response if needed by the API structure
+                    // { role: "model", parts: [{ text: "Okay, I understand the rules and context. Please provide the task instructions." }] }
+                ]
             });
-            activeChatSessions.set(socket.id, chatSession);
+            activeChatSessions.set(socket.id, chatSession); // Store the new session
 
-            // Construct initial message parts for the first sendMessage call
-            // Combine prompt and images
-             initialMessageParts = [
-                 // { text: coreRoleText }, // Now in systemInstruction
-                 // { text: structureContextText },
-                 // { text: toolsInfoText },
-                 // { text: rulesAndProcessText }, // Now in systemInstruction
-                 { text: initialUserRequestText },
-                 ...imageParts
-             ];
+            // The first message will contain the user's actual prompt and images
+            initialMessageParts = [
+                { text: initialUserRequestText },
+                ...imageParts
+            ];
         }
+        // --- End Chat Session Initialization ---
 
-        // Send initial context state to client (mostly relevant for resumes)
-        // For new tasks, client clears context anyway.
+        // Send initial context state to client UI if needed
         if (contextChangesToSend.length > 0) {
-             emitLog(socket, `📊 Sending initial context state to client (changes: ${contextChangesToSend.length})`, 'info');
-             socket.emit('context-update', { changes: contextChangesToSend });
+            // ADDED isAction flag
+            emitLog(socket, `📊 Sending initial context state to client (changes: ${contextChangesToSend.length})`, 'info', true);
+            socket.emit('context-update', { changes: contextChangesToSend });
         }
-        // For new tasks, the initial context logs already sent via emitContextLog are sufficient.
 
-
+        // --- Validate Session and Message ---
         if (!chatSession) {
             throw new Error("Internal error: Chat session was not initialized.");
         }
         if (!initialMessageParts || initialMessageParts.length === 0) {
-             // If using system instruction, initial message might just be the prompt part
-             if (!userPrompt && imageParts.length === 0) {
-                throw new Error("Internal error: Failed to construct initial message for Gemini (empty prompt/images).");
-             }
-             // Ensure initialMessageParts is at least an empty array if only images are present
+             // Check if it was just images
+            if (!userPrompt && imageParts.length === 0) {
+                 throw new Error("Internal error: Failed to construct initial message for Gemini (empty prompt/images).");
+            }
+            // If only images were provided, ensure initialMessageParts is at least an empty array
              initialMessageParts = initialMessageParts || [];
-        }
+         }
+        // --- End Validation ---
 
-        // --- Prepare Function Handlers and Start Execution ---
-        const handlerContext = {
-            socket,
-            BASE_DIR,
-            confirmAllRef,
-            feedbackResolverRef,
-            questionResolverRef,
-            changesLog: currentChangesLogRef.value // Pass the reference array directly
-        };
+
+        // Prepare context and handlers for the task runner
+        const handlerContext = { socket, BASE_DIR, confirmAllRef, feedbackResolverRef, questionResolverRef, changesLog: currentChangesLogRef.value };
         const fileSystemHandlers = createFileSystemHandlers(handlerContext, currentChangesLogRef.value);
 
         const taskContext = {
             socket,
             BASE_DIR,
-            messageToSend: initialMessageParts,
+            messageToSend: initialMessageParts, // The first message for Gemini
             chatSession,
-            functionHandlers: fileSystemHandlers, // Pass the created handlers
+            functionHandlers: fileSystemHandlers,
             confirmAllRef,
             feedbackResolverRef,
             questionResolverRef,
             temperature,
-            currentChangesLog: currentChangesLogRef.value, // Pass the array for runner access if needed
-            originalPromptForState: currentOriginalPromptRef.value, // Pass the correct original prompt
-            retryDelay: process.env.GEMINI_RETRY_DELAY || 120000,
-            toolConfig: toolConfig // Pass toolConfig to runner
+            currentChangesLog: currentChangesLogRef.value, // Pass the ref's value
+            originalPromptForState: currentOriginalPromptRef.value, // Pass the ref's value
+            retryDelay: parseInt(process.env.GEMINI_RETRY_DELAY || '120000', 10), // Use env var or default
+            toolConfig: toolConfig
         };
 
-        // Start the asynchronous task runner
-        // --- Ensure 'state' is passed to runGeminiTask --- MODIFIED HERE ---
+        // Start the asynchronous task execution loop
         runGeminiTask(taskContext, state);
 
     } catch (error) {
-        // --- Handle Setup Errors ---
+        // Catch errors during setup (e.g., directory access)
         const targetDir = currentBaseDirRef.value || relativeBaseDir || '(unknown)';
         let userMessage = `Error preparing task: ${error.message}`;
 
-        // Provide more specific user messages for common errors
+        // Provide more specific error messages
         if (error.code === 'ENOENT' && (error.path === BASE_DIR || error.syscall === 'stat')) {
             userMessage = `Base directory not found or inaccessible: ${targetDir}`;
         } else if (error.code === 'EACCES') {
-             userMessage = `Permission denied when accessing base directory or its contents: ${targetDir}`;
+            userMessage = `Permission denied when accessing base directory or its contents: ${targetDir}`;
         } else if (error.message.includes('not a directory')) {
-            userMessage = `Specified base path is not a directory: ${targetDir}`;
-        }
+             userMessage = `Specified base path is not a directory: ${targetDir}`;
+         }
 
-        emitLog(socket, `❌ Error during task setup for ${targetDir}: ${error.message}`, 'error');
+        // ADDED isAction flag
+        emitLog(socket, `❌ Error during task setup for ${targetDir}: ${error.message}`, 'error', true);
         console.error(`Task Setup Error for ${targetDir}:`, error);
-        emitContextLog(socket, 'error', `Setup Error: ${userMessage}`);
+        // Use updated emitFullContextUpdate structure
+        emitFullContextUpdate(socket, { type: 'error', text: `Setup Error: ${userMessage}` });
         socket.emit('task-error', { message: userMessage });
 
-        // Clean up state refs on error during setup
+        // Clean up state refs on error
         currentBaseDirRef.value = null;
         currentOriginalPromptRef.value = null;
         currentChangesLogRef.value = [];
@@ -323,5 +333,4 @@ async function setupAndStartTask(socket, data, state) {
     }
 }
 
-// --- Ensure buildInitialPrompt is exported --- MODIFIED HERE ---
 module.exports = { setupAndStartTask, buildInitialPrompt };

@@ -1,18 +1,18 @@
-const { emitLog } = require('./utils');
-const { setupAndStartTask } = require('./taskSetup');
-const { setupSocketListeners } = require('./socketListeners');
+const { emitLog } = require("./utils");
+const { setupAndStartTask } = require("./taskSetup");
+const { setupSocketListeners } = require("./socketListeners");
 
 // --- Server-Side State Management ---
 
 // Store task history/context keyed by base directory path.
 // This allows resuming tasks later if the client disconnects or starts a new task
-// in the same directory with 'Continue Context' checked.
+// in the same directory with "Continue Context" checked.
 // Structure: Map<string (baseDir), { originalPrompt: string, baseDir: string, changes: Array<object>, timestamp: number }>
 const taskStates = new Map();
 
 // Store active chat sessions keyed by socket ID.
 // This allows continuing the *same* Gemini conversation if the client refreshes
-// or submits a follow-up prompt with 'Continue Context' checked *without* disconnecting.
+// or submits a follow-up prompt with "Continue Context" checked *without* disconnecting.
 // Structure: Map<string (socketId), GenerativeChatSession>
 const activeChatSessions = new Map();
 
@@ -24,13 +24,13 @@ const activeChatSessions = new Map();
  */
 function handleSocketConnection(socket, io) {
     console.log(`🔌 User connected: ${socket.id}`);
-    emitLog(socket, '✅ Connected to server. Ready for tasks.', 'success'); // Use a success type
+    emitLog(socket, "🔌 User connected and ready for tasks.", "success", true); // Make it a bubble
 
     // --- Connection-Specific State ---
-    // Use objects with a 'value' property (Refs) to allow modules modify these values
+    // Use objects with a "value" property (Refs) to allow modules modify these values
     // for the specific connection.
     const connectionState = {
-        confirmAllRef: { value: false },          // Has user selected 'Yes to All' for this task run?
+        confirmAllRef: { value: false },          // Has user selected "Yes to All" for this task run?
         feedbackResolverRef: { value: null },     // Stores the resolve function for pending confirmation prompts
         questionResolverRef: { value: null },     // Stores the resolve function for pending questions
         currentChangesLogRef: { value: [] },      // Accumulates file changes for the *current* task run
@@ -48,7 +48,7 @@ function handleSocketConnection(socket, io) {
     // --- Event Listeners for this Connection ---
 
     // Listen for the client initiating a task
-    socket.on('start-task', async (data) => {
+    socket.on("start-task", async (data) => {
         // Delegate task setup and execution start
         // This function will handle context loading/creation and call runGeminiTask
         await setupAndStartTask(socket, data, overallState);
@@ -58,7 +58,7 @@ function handleSocketConnection(socket, io) {
     setupSocketListeners(socket, overallState);
 
     // Optional: Send initial state if needed (e.g., server version)
-    // socket.emit('server-info', { version: '1.0.0' });
+    // socket.emit("server-info", { version: "1.0.0" });
 }
 
 module.exports = { handleSocketConnection };

@@ -5,7 +5,7 @@
   "main": "gemini-coder.js",
   "scripts": {
     "start": "node src/server/server.js",
-    "test": "mocha test/**/*.test.js",
+    "test": "mocha --require test/setup.js test/**/*.test.js",
     "watch": "nodemon src/server/server.js"
   },
   "keywords": [],
@@ -25,6 +25,7 @@
   },
   "devDependencies": {
     "cpx": "^1.5.0",
+    "jsdom": "^26.0.0",
     "mocha": "^11.1.0",
     "nodemon": "^3.1.0"
   }

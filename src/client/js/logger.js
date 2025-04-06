@@ -1,88 +1,93 @@
-/**
- * Adds a message to the log output area on the UI.
- * @param {string} message The message content.
- * @param {string} type The type of message ('info', 'success', 'error', 'warn', 'confirm', 'diff', 'gemini-req', 'gemini-resp', 'func-call', 'func-result', 'debug').
- */
-function addLogMessage(message, type = 'info') {
+// c:\dev\gemini-coder\src\client\js\logger.js
+// Modify the function signature to accept isAction (defaulting to false)
+function addLogMessage(message, type = 'info', isAction = false) {
     const logOutput = document.getElementById('logOutput');
-    const logContainer = document.getElementById('logContainer'); // The scrollable container
-
+    const logContainer = document.getElementById('logContainer');
     if (!logOutput || !logContainer) {
         console.error("Log output elements ('logOutput', 'logContainer') not found in the DOM.");
-        // Fallback alert if logging UI isn't available
         alert(`Log [${type}]: ${message}`);
         return;
     }
 
     const logEntry = document.createElement('div');
-    logEntry.className = `log-entry log-${type}`; // Add base class and type-specific class
+    // Add the base class and type-specific class
+    logEntry.className = `log-entry log-${type}`;
+
+    // Add the action bubble class if applicable
+    if (isAction && type !== 'diff') { // Don't make diffs standard bubbles
+        logEntry.classList.add('log-action-bubble');
+    }
 
     if (type === 'diff') {
-        // Special handling for diff messages to preserve formatting and apply line styles
+        // --- Keep the existing diff handling logic ---
+        logEntry.classList.add('log-diff'); // Add specific class for easier targeting if needed
         const pre = document.createElement('pre');
-        const lines = message.split(/\\r?\\n/); // Split message into lines
-
+        const lines = message.split(/\r?\n/);
+        // ... (rest of the diff parsing logic remains the same) ...
+         let hasContent = false;
         lines.forEach(line => {
-            // Skip adding empty lines if the message is just whitespace
-            if (line.trim() === '' && lines.length === 1) return;
-
             const span = document.createElement('span');
-            if (line.startsWith('+')) {
+            const trimmedLine = line.trim();
+            // Simple heuristic: Check first char for diff type
+            if (line.startsWith('+ ')) {
                 span.className = 'diff-added';
                 span.textContent = line;
-            } else if (line.startsWith('-')) {
+                hasContent = true;
+            } else if (line.startsWith('- ')) {
                 span.className = 'diff-removed';
                 span.textContent = line;
+                hasContent = true;
+            } else if (line.startsWith('---') || line.startsWith('+++') || line.startsWith('@@')) {
+                 // Diff header/context lines - styled subtly or omitted visually
+                 // Optionally add a class if specific styling is needed:
+                 // span.className = 'diff-header';
+                 span.textContent = line; // Still include for completeness
+                 // Optionally skip adding header lines to pre if desired:
+                 // return;
+                 hasContent = true; // Consider header lines as content for display
+            } else if (trimmedLine === '' && !hasContent) {
+                // Don't start with an empty line if no diff content yet
+                return;
             } else {
-                // Context lines, summaries, or other non-diff parts
+                // Treat other lines as context
                 span.className = 'diff-context';
                 span.textContent = line;
+                hasContent = true;
             }
             pre.appendChild(span);
-            pre.appendChild(document.createTextNode('\\n')); // Add newline after each span
         });
 
-        // Remove the trailing newline text node if it exists
-        if (pre.lastChild && pre.lastChild.nodeType === Node.TEXT_NODE && pre.lastChild.textContent === '\\n') {
-            pre.removeChild(pre.lastChild);
-        }
-
-        // Only append the <pre> block if it contains actual diff spans
-        if (pre.hasChildNodes()) {
-             logEntry.appendChild(pre);
+        if (pre.hasChildNodes() && hasContent) {
+            logEntry.appendChild(pre);
         } else {
-            // If diff resulted in empty <pre> (e.g., only '(No changes)' summary)
-            // display the original message directly if it's not just whitespace.
-            const trimmedMessage = message.trim();
-            if (trimmedMessage !== '') {
-                 // Avoid logging just '(No changes)' in a non-diff format if that's the whole message
-                if (trimmedMessage !== '(No changes)') {
-                    logEntry.textContent = message; // Show summary or truncated notice directly
-                } else {
-                    // Optionally explicitly log 'No changes' differently or skip
-                    // logEntry.textContent = '(No changes detected)';
-                    // logEntry.style.fontStyle = 'italic';
-                    // For now, let's just skip adding the entry if it's only '(No changes)'
-                     return; // Don't add empty or "no changes" diffs
-                }
-            } else {
-                // Don't add an entry if the original message was effectively empty
+             // Handle cases where the diff message might not contain actual changes
+             // or isn't formatted as expected (e.g., empty diff, simple message)
+             const trimmedMessage = message.trim();
+             if (trimmedMessage !== '' && trimmedMessage !== '(No changes)') {
+                 // Render non-diff content within a pre for consistency if it wasn't empty
+                 const preFallback = document.createElement('pre');
+                 preFallback.textContent = message;
+                 logEntry.appendChild(preFallback);
+             } else {
+                 // Don't add empty or "(No changes)" diff logs
                 return;
-            }
+             }
         }
     } else {
-        // For non-diff messages, just set the text content
+        // For non-diff types, just set text content
         logEntry.textContent = message;
     }
 
-    // Only append if the entry has content (either text or the diff <pre>)
+    // Append only if there's content (text or diff spans)
     if (logEntry.textContent || logEntry.querySelector('pre > span')) {
         logOutput.appendChild(logEntry);
-
-        // Scroll to the bottom using requestAnimationFrame for better performance
+        // Scroll to bottom
         requestAnimationFrame(() => {
-            // Scroll the container, not the pre itself
-             logContainer.scrollTop = logContainer.scrollHeight;
+            logContainer.scrollTop = logContainer.scrollHeight;
         });
     }
 }
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { addLogMessage };
+  }

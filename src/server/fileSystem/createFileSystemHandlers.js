@@ -3,7 +3,7 @@ const fs = require("node:fs/promises");
 const { glob } = require("glob");
 
 // Adjust the path to utils and import required functions
-const { emitLog, requestUserConfirmation, checkSafety, generateDiff, emitContextLog } = require("../utils");
+const { emitLog, requestUserConfirmation, checkSafety, generateDiff, emitContextLogEntry } = require("../utils");
 
 // Import the internal helper functions from their new files
 const { loadGitignore } = require("./loadGitignore");
@@ -274,7 +274,7 @@ function createFileSystemHandlers(context, changesLog) {
                  diffString = "(Creating new file)";
             }
 
-            emitContextLog(socket, "confirmation_request", `${fileExisted ? "Confirm Overwrite" : "Confirm Create"}: ${filePath}`);
+            emitContextLogEntry(socket, "confirmation_request", `${fileExisted ? "Confirm Overwrite" : "Confirm Create"}: ${filePath}`, true);
 
             const userDecision = await requestUserConfirmation(
                 socket,
@@ -287,18 +287,18 @@ function createFileSystemHandlers(context, changesLog) {
             if (userDecision === "no" || userDecision === "disconnect" || userDecision === "error" || userDecision === "task-end") {
                 const reason = userDecision === "no" ? "rejected" : `cancelled (${userDecision})`;
                 emitLog(socket, ` 🚫 Operation cancelled by user/system: writeFileContent(${filePath}) - Reason: ${reason}`, "warn");
-                emitContextLog(socket, "confirmation_response", `Write ${filePath} - ${reason}`);
+                emitContextLogEntry(socket, "confirmation_response", `Write ${filePath} - ${reason}`);
                 return { error: `User or system ${reason} writing to file \'${filePath}\'.` };
             } else if (userDecision === "yes/all") {
                  if (confirmAllRef) confirmAllRef.value = true;
                  emitLog(socket, ` 👍 Confirmation set to \'Yes to All\' for this task.`, "info");
-                 emitContextLog(socket, "confirmation_response", `Write ${filePath} - Confirmed (Yes to All)`);
+                 emitContextLogEntry(socket, "confirmation_response", `Write ${filePath} - Confirmed (Yes to All)`);
             } else {
-                emitContextLog(socket, "confirmation_response", `Write ${filePath} - Confirmed (Yes)`);
+                emitContextLogEntry(socket, "confirmation_response", `Write ${filePath} - Confirmed (Yes)`);
             }
         } else {
             emitLog(socket, ` 👍 Skipping confirmation for \'${filePath}\' due to \'Yes to All\'.`, "info");
-            emitContextLog(socket, "writeFileContent", `Write: ${filePath} (Auto-confirmed)`);
+            emitContextLogEntry(socket, "writeFileContent", `Write: ${filePath} (Auto-confirmed)`);
         }
 
         emitLog(socket, `💾 Executing write for: ${filePath}`, "info");
@@ -311,7 +311,7 @@ function createFileSystemHandlers(context, changesLog) {
             return { success: true, message: successMsg };
         } else {
             emitLog(socket, ` ❌ Failed write for ${filePath}. Error: ${writeResult.error}`, "error");
-            emitContextLog(socket, "error", `Write Failed: ${filePath} - ${writeResult.error}`);
+            emitContextLogEntry(socket, "error", `Write Failed: ${filePath} - ${writeResult.error}`);
             return writeResult;
         }
     }
@@ -339,7 +339,7 @@ function createFileSystemHandlers(context, changesLog) {
         } catch (readError) {
              if (readError.code === "ENOENT") {
                  emitLog(socket, ` ⚠️ File not found for deletion: \'${filePath}\'. Assuming already deleted.`, "warn");
-                 emitContextLog(socket, "deleteFile", `Delete Skipped (Not Found): ${filePath}`);
+                 emitContextLogEntry(socket, "deleteFile", `Delete Skipped (Not Found): ${filePath}`);
                  return { success: true, message: `File \'${filePath}\' not found (already deleted?).` };
              } else {
                  emitLog(socket, ` ⚠️ Error reading file content before deletion (${filePath}): ${readError.message}. Cannot guarantee undo.`, "warn");
@@ -349,7 +349,7 @@ function createFileSystemHandlers(context, changesLog) {
         }
 
         if (!confirmAllRef.value && fileExists) {
-            emitContextLog(socket, "confirmation_request", `Confirm Delete: ${filePath}`);
+            emitContextLogEntry(socket, "confirmation_request", `Confirm Delete: ${filePath}`, true);
             const userDecision = await requestUserConfirmation(
                 socket,
                 `Delete file: \'${filePath}\'? (Cannot be easily undone)`,
@@ -360,18 +360,18 @@ function createFileSystemHandlers(context, changesLog) {
              if (userDecision === "no" || userDecision === "disconnect" || userDecision === "error" || userDecision === "task-end") {
                 const reason = userDecision === "no" ? "rejected" : `cancelled (${userDecision})`;
                 emitLog(socket, ` 🚫 Operation cancelled by user/system: deleteFile(${filePath}) - Reason: ${reason}`, "warn");
-                emitContextLog(socket, "confirmation_response", `Delete ${filePath} - ${reason}`);
+                emitContextLogEntry(socket, "confirmation_response", `Delete ${filePath} - ${reason}`);
                 return { error: `User or system ${reason} deleting file \'${filePath}\'.` };
             } else if (userDecision === "yes/all") {
                  if (confirmAllRef) confirmAllRef.value = true;
                  emitLog(socket, ` 👍 Confirmation set to \'Yes to All\' for this task.`, "info");
-                 emitContextLog(socket, "confirmation_response", `Delete ${filePath} - Confirmed (Yes to All)`);
+                 emitContextLogEntry(socket, "confirmation_response", `Delete ${filePath} - Confirmed (Yes to All)`);
             } else {
-                 emitContextLog(socket, "confirmation_response", `Delete ${filePath} - Confirmed (Yes)`);
+                 emitContextLogEntry(socket, "confirmation_response", `Delete ${filePath} - Confirmed (Yes)`);
             }
         } else if (fileExists) {
              emitLog(socket, ` 👍 Skipping confirmation for deleting \'${filePath}\' due to \'Yes to All\'.`, "info");
-             emitContextLog(socket, "deleteFile", `Delete: ${filePath} (Auto-confirmed)`);
+             emitContextLogEntry(socket, "deleteFile", `Delete: ${filePath} (Auto-confirmed)`);
         }
 
         emitLog(socket, `🗑️ Executing delete for: ${filePath}`, "info");
@@ -384,7 +384,7 @@ function createFileSystemHandlers(context, changesLog) {
              return { success: true, message: successMsg };
         } else {
             emitLog(socket, ` ❌ Failed delete for ${filePath}. Error: ${deleteResult.error}`, "error");
-            emitContextLog(socket, "error", `Delete Failed: ${filePath} - ${deleteResult.error}`);
+            emitContextLogEntry(socket, "error", `Delete Failed: ${filePath} - ${deleteResult.error}`);
             return deleteResult;
         }
     }
@@ -426,7 +426,7 @@ function createFileSystemHandlers(context, changesLog) {
         }
 
         if (!confirmAllRef.value) {
-            emitContextLog(socket, "confirmation_request", `Confirm Move: ${sourcePath} -> ${destinationPath}`);
+            emitContextLogEntry(socket, "confirmation_request", `Confirm Move: ${sourcePath} -> ${destinationPath}`, true);
             const userDecision = await requestUserConfirmation(
                 socket,
                 `Move/rename \'${sourcePath}\' to \'${destinationPath}\'?`,
@@ -437,18 +437,18 @@ function createFileSystemHandlers(context, changesLog) {
             if (userDecision === "no" || userDecision === "disconnect" || userDecision === "error" || userDecision === "task-end") {
                 const reason = userDecision === "no" ? "rejected" : `cancelled (${userDecision})`;
                 emitLog(socket, ` 🚫 Operation cancelled by user/system: moveItem(${sourcePath}, ${destinationPath}) - Reason: ${reason}`, "warn");
-                emitContextLog(socket, "confirmation_response", `Move ${sourcePath} -> ${destinationPath} - ${reason}`);
+                emitContextLogEntry(socket, "confirmation_response", `Move ${sourcePath} -> ${destinationPath} - ${reason}`);
                 return { error: `User or system ${reason} moving item \'${sourcePath}\'.` };
             } else if (userDecision === "yes/all") {
                  if (confirmAllRef) confirmAllRef.value = true;
                  emitLog(socket, ` 👍 Confirmation set to \'Yes to All\' for this task.`, "info");
-                 emitContextLog(socket, "confirmation_response", `Move ${sourcePath} -> ${destinationPath} - Confirmed (Yes to All)`);
+                 emitContextLogEntry(socket, "confirmation_response", `Move ${sourcePath} -> ${destinationPath} - Confirmed (Yes to All)`);
             } else {
-                 emitContextLog(socket, "confirmation_response", `Move ${sourcePath} -> ${destinationPath} - Confirmed (Yes)`);
+                 emitContextLogEntry(socket, "confirmation_response", `Move ${sourcePath} -> ${destinationPath} - Confirmed (Yes)`);
             }
         } else {
              emitLog(socket, ` 👍 Skipping confirmation for moving \'${sourcePath}\' due to \'Yes to All\'.`, "info");
-             emitContextLog(socket, "moveItem", `Move: ${sourcePath} -> ${destinationPath} (Auto-confirmed)`);
+             emitContextLogEntry(socket, "moveItem", `Move: ${sourcePath} -> ${destinationPath} (Auto-confirmed)`);
         }
 
         emitLog(socket, `🚚 Executing move from: ${sourcePath} To: ${destinationPath}`, "info");
@@ -461,7 +461,7 @@ function createFileSystemHandlers(context, changesLog) {
             return { success: true, message: successMsg };
         } else {
             emitLog(socket, ` ❌ Failed move for ${sourcePath} -> ${destinationPath}. Error: ${moveResult.error}`, "error");
-            emitContextLog(socket, "error", `Move Failed: ${sourcePath} -> ${destinationPath} - ${moveResult.error}`);
+            emitContextLogEntry(socket, "error", `Move Failed: ${sourcePath} -> ${destinationPath} - ${moveResult.error}`);
             return moveResult;
         }
     }
@@ -476,7 +476,7 @@ function createFileSystemHandlers(context, changesLog) {
         const fullPath = path.resolve(BASE_DIR, directoryPath);
 
         emitLog(socket, `📁 Executing create directory: ${directoryPath}`, "info");
-        emitContextLog(socket, "createDirectory", `Create Folder: ${directoryPath}`);
+        emitContextLogEntry(socket, "createDirectory", `Create Folder: ${directoryPath}`);
         // Use imported _createDir
         const createResult = await _createDir(fullPath, handlerContext, directoryPath);
 
@@ -484,12 +484,12 @@ function createFileSystemHandlers(context, changesLog) {
             const successMsg = createResult.message || `Directory created successfully at \'${directoryPath}\'`;
             emitLog(socket, ` ✅ ${successMsg}`, "success");
              if (createResult.message && createResult.message.includes("already exists")) {
-                emitContextLog(socket, "info", `Folder already exists: ${directoryPath}`);
+                emitContextLogEntry(socket, "info", `Folder already exists: ${directoryPath}`);
              }
             return { success: true, message: successMsg };
         } else {
             emitLog(socket, ` ❌ Failed create directory for ${directoryPath}. Error: ${createResult.error}`, "error");
-            emitContextLog(socket, "error", `Create Folder Failed: ${directoryPath} - ${createResult.error}`);
+            emitContextLogEntry(socket, "error", `Create Folder Failed: ${directoryPath} - ${createResult.error}`);
             return createResult;
         }
     }
@@ -518,7 +518,7 @@ function createFileSystemHandlers(context, changesLog) {
          } catch (statError) {
              if (statError.code === "ENOENT") {
                  emitLog(socket, ` ⚠️ Directory not found for deletion: \'${directoryPath}\'. Assuming already deleted.`, "warn");
-                 emitContextLog(socket, "deleteDirectory", `Delete Folder Skipped (Not Found): ${directoryPath}`);
+                 emitContextLogEntry(socket, "deleteDirectory", `Delete Folder Skipped (Not Found): ${directoryPath}`);
                  return { success: true, message: `Directory \'${directoryPath}\' not found (already deleted?).` };
              }
              emitLog(socket, `❌ Error accessing directory ${directoryPath}: ${statError.message}`, "error");
@@ -526,7 +526,7 @@ function createFileSystemHandlers(context, changesLog) {
          }
 
         if (!confirmAllRef.value) {
-            emitContextLog(socket, "confirmation_request", `Confirm Delete Folder (Recursive): ${directoryPath}`);
+            emitContextLogEntry(socket, "confirmation_request", `Confirm Delete Folder (Recursive): ${directoryPath}`, true);
             const userDecision = await requestUserConfirmation(
                  socket,
                  `DELETE directory \'${directoryPath}\' and ALL ITS CONTENTS recursively? This is IRREVERSIBLE.`,
@@ -537,18 +537,18 @@ function createFileSystemHandlers(context, changesLog) {
              if (userDecision === "no" || userDecision === "disconnect" || userDecision === "error" || userDecision === "task-end") {
                  const reason = userDecision === "no" ? "rejected" : `cancelled (${userDecision})`;
                  emitLog(socket, ` 🚫 Operation cancelled by user/system: deleteDirectory(${directoryPath}) - Reason: ${reason}`, "warn");
-                 emitContextLog(socket, "confirmation_response", `Delete Folder ${directoryPath} - ${reason}`);
+                 emitContextLogEntry(socket, "confirmation_response", `Delete Folder ${directoryPath} - ${reason}`);
                  return { error: `User or system ${reason} deleting directory \'${directoryPath}\'.` };
              } else if (userDecision === "yes/all") {
                  if (confirmAllRef) confirmAllRef.value = true;
                  emitLog(socket, ` 👍 Confirmation set to \'Yes to All\' for this task (including recursive delete).`, "info");
-                 emitContextLog(socket, "confirmation_response", `Delete Folder ${directoryPath} - Confirmed (Yes to All)`);
+                 emitContextLogEntry(socket, "confirmation_response", `Delete Folder ${directoryPath} - Confirmed (Yes to All)`);
              } else {
-                emitContextLog(socket, "confirmation_response", `Delete Folder ${directoryPath} - Confirmed (Yes)`);
+                emitContextLogEntry(socket, "confirmation_response", `Delete Folder ${directoryPath} - Confirmed (Yes)`);
              }
         } else {
              emitLog(socket, ` 👍 Skipping confirmation for deleting directory \'${directoryPath}\' due to \'Yes to All\'.`, "info");
-             emitContextLog(socket, "deleteDirectory", `Delete Folder: ${directoryPath} (Auto-confirmed)`);
+             emitContextLogEntry(socket, "deleteDirectory", `Delete Folder: ${directoryPath} (Auto-confirmed)`);
         }
 
         emitLog(socket, `🗑️🔥 Executing delete directory (recursive): ${directoryPath}`, "info");
@@ -561,7 +561,7 @@ function createFileSystemHandlers(context, changesLog) {
             return { success: true, message: successMsg };
         } else {
             emitLog(socket, ` ❌ Failed delete directory for ${directoryPath}. Error: ${deleteResult.error}`, "error");
-            emitContextLog(socket, "error", `Delete Folder Failed: ${directoryPath} - ${deleteResult.error}`);
+            emitContextLogEntry(socket, "error", `Delete Folder Failed: ${directoryPath} - ${deleteResult.error}`);
             return deleteResult;
         }
     }
@@ -573,7 +573,7 @@ function createFileSystemHandlers(context, changesLog) {
         if (!question) return { error: "Missing required argument: question" };
 
         emitLog(socket, `❓ Asking user: ${question}`, "info");
-        emitContextLog(socket, "question", `Question: ${question}`);
+        emitContextLogEntry(socket, "question", `Question: ${question}`);
 
         return new Promise((resolve) => {
             if (questionResolverRef) questionResolverRef.value = resolve;
@@ -581,7 +581,7 @@ function createFileSystemHandlers(context, changesLog) {
         }).then(answer => {
             if (questionResolverRef) questionResolverRef.value = null;
             emitLog(socket, `🗣️ Received answer: ${JSON.stringify(answer)}`, "info");
-            emitContextLog(socket, "answer", `Answer: ${JSON.stringify(answer)}`);
+            emitContextLogEntry(socket, "answer", `Answer: ${JSON.stringify(answer)}`);
 
              if (answer === "disconnect" || answer === "error" || answer === "task-end") {
                 return { error: `Question cancelled due to ${answer}.` };
@@ -590,7 +590,7 @@ function createFileSystemHandlers(context, changesLog) {
         }).catch(error => {
              emitLog(socket, `❌ Error in askUserQuestion promise: ${error}`, "error");
              if (questionResolverRef) questionResolverRef.value = null;
-             emitContextLog(socket, "error", `Question Error: ${error.message || error}`);
+             emitContextLogEntry(socket, "error", `Question Error: ${error.message || error}`);
              return { error: `Failed to get user answer: ${error.message}` };
         });
     }
@@ -600,7 +600,7 @@ function createFileSystemHandlers(context, changesLog) {
          if (!messageToDisplay) return { error: "Missing required argument: messageToDisplay" };
 
          emitLog(socket, `ℹ️ Info for user: ${messageToDisplay}`, "info");
-         emitContextLog(socket, "info", `Info: ${messageToDisplay}`);
+         emitContextLogEntry(socket, "info", `Info: ${messageToDisplay}`);
 
          return { success: true, message: "Information displayed to user." };
      }

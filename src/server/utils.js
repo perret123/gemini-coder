@@ -1,160 +1,103 @@
-const path = require('node:path');
-const fs = require('node:fs/promises');
-const ignore = require('ignore');
-const diff = require('diff');
+// c:\dev\gemini-coder\src\server\utils.js
+const fs = require("fs").promises;
+const path = require("path");
+const diff = require("diff");
 
-/**
- * Emits a log message to the console and sends it over the socket.
- * @param {object|null} socketInstance - The socket.io socket instance, or null.
- * @param {string} message - The log message.
- * @param {string} [type='info'] - The log type ('info', 'error', 'warn', 'success', 'debug', 'confirm', 'gemini-req', 'gemini-resp', 'func-call', 'func-result').
- */
-function emitLog(socketInstance, message, type = 'info') {
+// Modify the function signature
+function emitLog(socketInstance, message, type = 'info', isAction = false) {
     const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
     const logPrefix = `[${timestamp}] [${type.toUpperCase()}]`;
 
-    // Console logging (respect DEBUG_LOGGING for debug type)
+    // --- Keep existing console logging logic ---
     if (type !== 'debug' || process.env.DEBUG_LOGGING === 'true') {
         const consoleMethod = type === 'error' ? console.error : (type === 'warn' ? console.warn : console.log);
-        // Handle potential multi-line messages for console
         const lines = String(message).split('\n');
         if (lines.length > 1) {
             consoleMethod(`${logPrefix} ${lines[0]}`);
             for(let i = 1; i < lines.length; i++) {
-                consoleMethod(`  ${lines[i]}`); // Indent subsequent lines
+                consoleMethod(` ${' '.repeat(logPrefix.length-1)} ${lines[i]}`); // Align multi-line logs
             }
         } else {
-             consoleMethod(`${logPrefix} ${message}`);
+            consoleMethod(`${logPrefix} ${message}`);
         }
     }
 
-    // Socket emission
     if (socketInstance && socketInstance.connected) {
         try {
-            // Send single message string over socket
-            socketInstance.emit('log', { message: `[${timestamp}] ${message}`, type });
+            // Pass the isAction flag in the emitted data
+            socketInstance.emit('log', {
+                message: message, // Send raw message without timestamp for cleaner bubbles
+                type,
+                isAction // Include the flag
+            });
         } catch (emitError) {
-             console.warn(`[${timestamp}] [WARN] Failed to emit log to socket ${socketInstance.id}: ${emitError.message}`);
+            console.warn(`[${timestamp}] [WARN] Failed to emit log to socket ${socketInstance.id}: ${emitError.message}`);
         }
     } else if (socketInstance && !socketInstance.connected) {
-        // Optionally log that emission failed due to disconnect?
+        // Optionally log that the message couldn't be sent if needed
         // console.log(`[${timestamp}] [DEBUG] Socket ${socketInstance.id} disconnected, log not sent: ${message}`);
     }
 }
 
-
-/**
- * Emits a context log entry over the socket for display in the context panel.
- * @param {object|null} socketInstance - The socket.io socket instance.
- * @param {string} type - A short identifier for the type of context entry (e.g., 'initial_prompt', 'file_write', 'question').
- * @param {string} text - The descriptive text for the context entry.
- */
-function emitContextLog(socketInstance, type, text) {
-     if (socketInstance && socketInstance.connected) {
-         try {
-             socketInstance.emit('context-log-entry', { type, text });
-             // Also log context entries as debug messages to server console
-             emitLog(socketInstance, `Context [${type}]: ${text}`, 'debug');
-         } catch (emitError) {
-              console.warn(`[${new Date().toLocaleTimeString('en-US', { hour12: false })}] [WARN] Failed to emit context log to socket ${socketInstance.id}: ${emitError.message}`);
-         }
-     } else {
-          // Log context locally if socket isn't available/connected
-          emitLog(null, `Context [${type}] (socket unavailable): ${text}`, 'debug');
-     }
+// Function to emit context information to the client
+function emitContextLog(socketInstance, contextData) {
+    if (socketInstance && socketInstance.connected) {
+        socketInstance.emit("context-update", contextData);
+    }
 }
 
-
-
-/**
- * Generates a diff string between old and new content.
- * @param {string} oldContent - The original content.
- * @param {string} newContent - The modified content.
- * @returns {string} A formatted diff string or '(No changes)'.
- */
-function generateDiff(oldContent = '', newContent = '') {
-    // Trim trailing whitespace for comparison, but use original for diff
-    const trimmedOld = oldContent.trimEnd();
-    const trimmedNew = newContent.trimEnd();
-
-    if (trimmedOld === trimmedNew && oldContent.length === newContent.length) {
-         return '(No changes)'; // More robust check
+function emitContextLogEntry(socketInstance, type, text) {
+    if (socketInstance && socketInstance.connected) {
+        // Ensure text is a string, even if null/undefined is passed
+        const entryText = String(text ?? '(No details provided)');
+        const payload = { type: type, text: entryText };
+        // console.debug(`Emitting context entry:`, payload); // Optional debug log
+        socketInstance.emit("context-update", payload);
     }
+}
 
-    // Normalize line endings for diffing
-    const normalizedOld = oldContent.replace(/\r\n/g, '\n');
-    const normalizedNew = newContent.replace(/\r\n/g, '\n');
-
-    const changes = diff.diffLines(normalizedOld, normalizedNew, { newlineIsToken: true });
-
-    let addedLines = 0;
-    let removedLines = 0;
-    let diffString = '';
-    const MAX_DIFF_DISPLAY_LINES = 200; // Limit displayed lines for performance/readability
-    let linesShown = 0;
-    let truncated = false;
-
-    changes.forEach(part => {
-        if (truncated) return; // Stop processing if already truncated
-
-        const count = part.count || 0;
-        // Split lines, keeping the trailing newline character attached if present
-        // This helps preserve blank lines in the diff output correctly.
-        const lines = part.value.split(/(\n)/).filter(Boolean); // Split by newline, keep newline, filter empty strings
-
-        if (part.added) {
-            addedLines += count;
-            lines.forEach(line => {
-                if (linesShown < MAX_DIFF_DISPLAY_LINES) {
-                    diffString += `+${line.startsWith('\n') ? '' : ' '}${line.trimEnd()}${line.endsWith('\n') ? '\n' : ''}`; // Add +, space, trim, re-add newline if exists
-                    linesShown++;
-                } else { truncated = true; }
-            });
-        } else if (part.removed) {
-            removedLines += count;
-            lines.forEach(line => {
-                if (linesShown < MAX_DIFF_DISPLAY_LINES) {
-                     diffString += `-${line.startsWith('\n') ? '' : ' '}${line.trimEnd()}${line.endsWith('\n') ? '\n' : ''}`;
-                    linesShown++;
-                } else { truncated = true; }
-            });
-        } else {
-            // Context lines
-            const maxContext = 3; // Show max 3 context lines before/after change
-            const contextLines = lines.map(line => ` ${line.startsWith('\n') ? '' : ' '}${line.trimEnd()}${line.endsWith('\n') ? '\n' : ''}`); // Add space prefix
-
-             if (contextLines.length <= maxContext * 2) {
-                // Show all context if it's short
-                contextLines.forEach(line => {
-                     if (linesShown < MAX_DIFF_DISPLAY_LINES) { diffString += line; linesShown++; } else { truncated = true; }
-                 });
-            } else {
-                // Show beginning and end context
-                 contextLines.slice(0, maxContext).forEach(line => {
-                    if (linesShown < MAX_DIFF_DISPLAY_LINES) { diffString += line; linesShown++; } else { truncated = true; }
-                 });
-                 if (!truncated) {
-                     diffString += `  ...\n`;
-                     linesShown++;
-                 }
-                 contextLines.slice(-maxContext).forEach(line => {
-                     if (linesShown < MAX_DIFF_DISPLAY_LINES) { diffString += line; linesShown++; } else { truncated = true; }
-                 });
-             }
+// NEW function for sending the full array
+function emitFullContextUpdate(socketInstance, changesArray) {
+    if (socketInstance && socketInstance.connected) {
+        if (!Array.isArray(changesArray)) {
+             console.error("emitFullContextUpdate ERROR: changesArray is not an array!", changesArray);
+             // Optionally emit an error or default payload
+             emitContextLogEntry(socketInstance, 'error', 'Internal Server Error: Invalid context data format.');
+             return;
         }
-         if (truncated && !diffString.endsWith('...\n')) {
-            diffString += '... (diff output truncated)\n';
-         }
-    });
+        const payload = { changes: changesArray };
+        // console.debug(`Emitting full context update: ${changesArray.length} items`); // Optional debug log
+        socketInstance.emit("context-update", payload);
+    }
+}
 
-    // Ensure final newline if content exists
-    if (diffString && !diffString.endsWith('\n')) {
-        diffString += '\n';
+// Function to generate diff
+function generateDiff(oldContent, newContent, filename) {
+    // Basic check if content is identical
+    if (oldContent === newContent) {
+        return "(No changes)";
     }
 
+    try {
+        const patch = diff.createPatch(filename, oldContent || "", newContent || "", undefined, undefined, {
+            context: 3, // Number of context lines around changes
+        });
 
-    const summary = `(Summary: +${addedLines} added, -${removedLines} removed)`;
-    return summary + (diffString ? '\n---\n' + diffString.trimEnd() : ''); // TrimEnd final result
+        // Filter out the patch header lines (---, +++, @@) for a cleaner look in the log
+        const lines = patch.split("\n");
+        const relevantLines = lines.slice(2).filter(line => line.trim() !== "\\ No newline at end of file");
+
+        // Check if, after removing headers, there are any actual change lines left
+        if (!relevantLines.some(line => line.startsWith("+") || line.startsWith("-"))) {
+            return "(No changes)"; // Content might differ only by whitespace or metadata ignored by diff
+        }
+
+        // Add back a simplified header and join lines
+        return `--- a/${filename}\n+++ b/${filename}\n${relevantLines.join("\n")}`;
+    } catch (error) {
+        console.error(`Error generating diff for ${filename}:`, error);
+        return "Error generating diff.";
+    }
 }
 
 
@@ -336,6 +279,8 @@ async function getDirectoryStructure(dirPath, baseDir, ig, maxDepth = 2, current
 module.exports = {
     emitLog,
     emitContextLog, // Export the new context logger
+    emitContextLogEntry,
+    emitFullContextUpdate,
     requestUserConfirmation,
     isPathSafe,
     checkSafety,
