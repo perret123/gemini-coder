@@ -28,7 +28,7 @@ function loadTasks() {
                     baseDir: task.baseDir || '',
                     prompt: task.prompt || '',
                     continueContext: task.continueContext || false, // Default to false
-                    temperature: task.temperature ?? 0.7, // Default temp if missing
+                    temperature: task.temperature ?? 1, // Default temp if missing
                     // Add other fields if needed in the future
                 }));
             } else {
@@ -171,7 +171,7 @@ function updateInputsFromSelection() {
         baseDirInput.value = '';
         promptInput.value = '';
         continueContextCheckbox.checked = false; // Default context off for new task
-        temperatureSlider.value = 0.7; // Default temperature
+        temperatureSlider.value = 1; // Default temperature
         temperatureValueSpan.textContent = parseFloat(temperatureSlider.value).toFixed(1);
         // Logs and context already cleared above
 

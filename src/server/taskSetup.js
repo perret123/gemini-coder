@@ -42,7 +42,9 @@ ${structureString || '- (Directory is empty or initial scan found no relevant fi
 1.  **STRICT CONFINEMENT:** All operations **MUST** target paths **RELATIVE** to the Base Directory (\`${BASE_DIR}\`). Never use absolute paths or \`..\`.
 2.  **FUNCTIONS FOR EVERYTHING:** Interact *exclusively* through the provided function calls. You **MUST** call a function in every turn.
 3.  **NO INTERMEDIATE TEXT:** Use \`showInformationTextToUser\` for progress updates, plans, errors, or confirmations. Returning plain text (except in \`task_finished\`) WILL cause an error.
-4.  **FULL CONTENT FOR WRITES:** \`writeFileContent\` requires the *complete* final content of the file.
+4.  **FULL & RAW CONTENT FOR WRITES:** \`writeFileContent\` requires the *complete* and *character-for-character exact, raw* source code content for the file.
+    *   **CRITICAL:** The string provided in the \`content\` argument **MUST NOT** contain any Markdown formatting, escaping, or linking (e.g., DO NOT use \`\\[\\\\\`code\\\\\`\\](\\\`code\\\`)\`).
+    *   Preserve original indentation and line endings (typically \`\\n\`) unless explicitly instructed to change them. The file system operations expect raw source code.
 5.  **HANDLE CONFIRMATION/QUESTIONS:** Be prepared for modification tools to require user confirmation (\`yes\`, \`no\`, \`yes/all\`). Also handle potential user responses from \`askUserQuestion\`. Adapt your plan based on the outcome (provided in the function result). If rejected (\`no\`), use \`showInformationTextToUser\` to explain why you cannot proceed, or call \`task_finished\` if it's a dead end.
 6.  **HANDLE ERRORS:** If a tool call returns an error in its result, use \`showInformationTextToUser\` to report it, then decide whether to try an alternative, ask the user (\`askUserQuestion\`), or give up (\`task_finished\`).
 7.  **PLAN & EXPLORE:** Analyze the request. Use \`showInformationTextToUser\` to outline complex plans *before* acting. Use reading/searching tools *before* modifying if unsure about the current state. Explain *why* using \`showInformationTextToUser\`.
@@ -50,6 +52,7 @@ ${structureString || '- (Directory is empty or initial scan found no relevant fi
 
     return { coreRoleText, structureContextText, toolsInfoText, rulesAndProcessText };
 }
+
 
 // --- Main Task Setup Function ---
 async function setupAndStartTask(socket, data, state) {
@@ -72,7 +75,7 @@ async function setupAndStartTask(socket, data, state) {
     const userPrompt = data.prompt?.trim();
     const continueContext = data.continueContext || false;
     const uploadedFiles = data.uploadedFiles || [];
-    const temperature = data.temperature ?? 0.7; // Default temperature
+    const temperature = data.temperature ?? 1; // Default temperature
 
     if (!userPrompt || !relativeBaseDir) {
         const missing = !userPrompt ? "Your Instructions (prompt)" : "Base Directory";
@@ -102,9 +105,9 @@ async function setupAndStartTask(socket, data, state) {
         const ig = await loadGitignore(BASE_DIR, socket); // Use helper from fileSystem
         emitLog(socket, `Scanning directory structure (max depth 2)...`, 'info');
         let structureLines = await getDirectoryStructure(BASE_DIR, BASE_DIR, ig, 2); // Max depth 2
-        const structureString = structureLines.join('\n');
-        emitLog(socket, `Initial Directory Structure (filtered):\n${structureString || '(empty or all ignored)'}`, 'info');
-        // emitContextLog(socket, 'initial_state', `Scanned Structure:\n${structureString || '(empty)'}`); // Maybe too verbose for context
+        const structureString = structureLines.join('\\n');
+        emitLog(socket, `Initial Directory Structure (filtered):\\n${structureString || '(empty or all ignored)'}`, 'info');
+        // emitContextLog(socket, 'initial_state', `Scanned Structure:\\n${structureString || '(empty)'}`); // Maybe too verbose for context
 
         // --- Process Uploaded Images ---
         const imageParts = [];
@@ -113,7 +116,7 @@ async function setupAndStartTask(socket, data, state) {
             emitContextLog(socket, 'initial_prompt', `Processing ${uploadedFiles.length} image(s)`);
             for (const filename of uploadedFiles) {
                  // Basic security check on filename
-                 if (!filename || filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+                 if (!filename || filename.includes('/') || filename.includes('\\\\') || filename.includes('..')) {
                      emitLog(socket, ` - ⚠️ Skipping potentially unsafe filename '${filename}'.`, 'warn');
                      continue;
                  }
@@ -154,7 +157,7 @@ async function setupAndStartTask(socket, data, state) {
              chatSession = activeChatSessions.get(socket.id);
              emitLog(socket, "🔄 Continuing previous active chat session (in-memory).", 'info');
              // Send only the new user prompt and images
-             initialMessageParts = [{ text: `User Request (Continue Task): "${userPrompt}"` }, ...imageParts];
+             initialMessageParts = [{ text: `User Request (Continue Task): \"${userPrompt}\"` }, ...imageParts];
              currentOriginalPromptRef.value = userPrompt; // Update prompt ref for this segment
              // Get current state for context display
               const savedState = taskStates.get(BASE_DIR);
@@ -169,20 +172,14 @@ async function setupAndStartTask(socket, data, state) {
             contextChangesToSend = savedState.changes || []; // Load previous changes
 
             const changesSummary = contextChangesToSend.length > 0
-                ? contextChangesToSend.map(c => `- ${c.type}: ${c.filePath || c.directoryPath || `${c.sourcePath} -> ${c.destinationPath}`}`).join('\n')
+                ? contextChangesToSend.map(c => `- ${c.type}: ${c.filePath || c.directoryPath || 
+`${c.sourcePath} -> ${c.destinationPath}`}`).join('\\n')
                 : '(None recorded)';
 
-            const resumePreamble = `You are resuming a previous task for the base directory '${BASE_DIR}'.
-**Original User Request:** "${savedState.originalPrompt}"
-**Previously Applied Changes:**
-${changesSummary}
----
-**Current User Request (Continue Task):** "${userPrompt}"
----
-Analyze the current request in the context of the original goal and previous changes, then proceed using function calls. Remember to call 'task_finished' when done.`;
+            const resumePreamble = `You are resuming a previous task for the base directory '${BASE_DIR}'.\r\n**Original User Request:** \"${savedState.originalPrompt}\"\r\n**Previously Applied Changes:**\r\n${changesSummary}\r\n---\r\n**Current User Request (Continue Task):** \"${userPrompt}\"\r\n---\r\nAnalyze the current request in the context of the original goal and previous changes, then proceed using function calls. Remember to call 'task_finished' when done.`;
 
-            emitLog(socket, `🔄 Resuming task from saved state for ${BASE_DIR}. Original Goal: "${savedState.originalPrompt}"`, 'info');
-            if (changesSummary !== '(None recorded)') emitLog(socket, `ℹ️ Previous changes loaded:\n${changesSummary}`, 'info');
+            emitLog(socket, `🔄 Resuming task from saved state for ${BASE_DIR}. Original Goal: \"${savedState.originalPrompt}\"`, 'info');
+            if (changesSummary !== '(None recorded)') emitLog(socket, `ℹ️ Previous changes loaded:\\n${changesSummary}`, 'info');
             emitContextLog(socket, 'resume_prompt', `Resuming Task (Original: ${savedState.originalPrompt.substring(0,50)}...)`);
 
             // Clear any old in-memory session for this socket
@@ -206,7 +203,7 @@ Analyze the current request in the context of the original goal and previous cha
             contextChangesToSend = []; // No initial context changes
 
             const { coreRoleText, structureContextText, toolsInfoText, rulesAndProcessText } = buildInitialPrompt(BASE_DIR, structureString);
-            const initialUserRequestText = `**Begin Task Execution for User Request:**\n"${userPrompt}"`;
+            const initialUserRequestText = `**Begin Task Execution for User Request:**\\n\"${userPrompt}\"`;
 
             // Clear any old session or state if not continuing
             if (activeChatSessions.has(socket.id)) {
@@ -224,9 +221,9 @@ Analyze the current request in the context of the original goal and previous cha
                 toolConfig: toolConfig, // Force ANY mode
                 // history: [] // Start with empty history
                 // Optionally include system instruction here if preferred over message parts
-                 systemInstruction: { role: "system", parts: [{ text: coreRoleText + "\n" + rulesAndProcessText }] },
+                 systemInstruction: { role: "system", parts: [{ text: coreRoleText + "\\n" + rulesAndProcessText }] },
                  history: [
-                     { role: "user", parts: [{ text: structureContextText + "\n" + toolsInfoText }] }, // Provide context as 'user' turn? Or system?
+                     { role: "user", parts: [{ text: structureContextText + "\\n" + toolsInfoText }] }, // Provide context as 'user' turn? Or system?
                      // Let's try sending the core rules as system instruction, context/tools as user, then the real prompt.
                  ]
             });
@@ -293,7 +290,8 @@ Analyze the current request in the context of the original goal and previous cha
         };
 
         // Start the asynchronous task runner
-        runGeminiTask(taskContext);
+        // --- Ensure 'state' is passed to runGeminiTask --- MODIFIED HERE ---
+        runGeminiTask(taskContext, state);
 
     } catch (error) {
         // --- Handle Setup Errors ---
@@ -325,4 +323,5 @@ Analyze the current request in the context of the original goal and previous cha
     }
 }
 
-module.exports = { setupAndStartTask };
+// --- Ensure buildInitialPrompt is exported --- MODIFIED HERE ---
+module.exports = { setupAndStartTask, buildInitialPrompt };

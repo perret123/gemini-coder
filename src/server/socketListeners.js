@@ -211,4 +211,5 @@ function setupSocketListeners(socket, state) {
     console.log(`Socket listeners setup for ${socket.id}`);
 }
 
-module.exports = { setupSocketListeners };
+// --- Ensure Export --- MODIFIED HERE ---
+module.exports = { setupSocketListeners, saveCurrentTaskState };
