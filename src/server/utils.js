@@ -3,9 +3,9 @@ const fs = require("fs").promises;
 const path = require("path");
 const diff = require("diff");
 
-// Modify the function signature
+// Modify the function signature and add timestamp to UI emission
 function emitLog(socketInstance, message, type = 'info', isAction = false) {
-    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false }); // Keep timestamp generation
     const logPrefix = `[${timestamp}] [${type.toUpperCase()}]`;
 
     // --- Keep existing console logging logic ---
@@ -24,20 +24,23 @@ function emitLog(socketInstance, message, type = 'info', isAction = false) {
 
     if (socketInstance && socketInstance.connected) {
         try {
-            // Pass the isAction flag in the emitted data
+            // Pass the isAction flag AND the timestamp in the emitted data
             socketInstance.emit('log', {
-                message: message, // Send raw message without timestamp for cleaner bubbles
+                message: message, // Send raw message
                 type,
-                isAction // Include the flag
+                isAction, // Include the flag
+                timestamp: timestamp // <<< ADDED TIMESTAMP HERE
             });
         } catch (emitError) {
-            console.warn(`[${timestamp}] [WARN] Failed to emit log to socket ${socketInstance.id}: ${emitError.message}`);
+            // Manually add timestamp to console.warn for consistency
+            console.warn(`[${new Date().toLocaleTimeString('en-US', { hour12: false })}] [WARN] Failed to emit log to socket ${socketInstance.id}: ${emitError.message}`);
         }
     } else if (socketInstance && !socketInstance.connected) {
         // Optionally log that the message couldn't be sent if needed
         // console.log(`[${timestamp}] [DEBUG] Socket ${socketInstance.id} disconnected, log not sent: ${message}`);
     }
 }
+
 
 // Function to emit context information to the client
 function emitContextLog(socketInstance, contextData) {
@@ -145,7 +148,7 @@ function isPathSafe(filePath, currentBaseDir) {
         return resolvedPath.startsWith(currentBaseDir + path.sep) || resolvedPath === currentBaseDir;
     } catch (error) {
         // Path resolution might fail for invalid characters etc.
-        console.error(`Error resolving path safety for "${filePath}" against "${currentBaseDir}":`, error);
+        console.error(`Error resolving path safety for \"${filePath}\" against \"${currentBaseDir}\":`, error);
         return false;
     }
 }

@@ -527,26 +527,56 @@ pre {
 
 /* Style the action bubbles */
 .log-action-bubble {
-  padding: 8px 14px; /* More padding for bubble effect */
+  padding: 8px 8px; /* More padding for bubble effect */
   border-radius: 15px; /* Rounded corners */
   /* Use a slightly different background, mix with secondary for theme support */
   background-color: color-mix(in srgb, var(--bg-secondary) 70%, var(--bg-primary) 30%);
   margin-bottom: 8px; /* Larger gap between bubbles */
   /* Make it fit content, but not exceed a certain width for bubble feel */
-  display: inline-block; /* Allow bubble to size to content */
+  display: inline-flex; /* Use flex to layout content and timestamp */
+  flex-wrap: wrap; /* Allow wrapping if content + timestamp is too long */
+  align-items: baseline; /* Align text and timestamp nicely */
+  gap: 0 8px; /* Space between message and timestamp */
   max-width: 90%; /* Prevent very long bubbles from filling width */
   border: 1px solid var(--border-color); /* Subtle border */
   box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Very subtle shadow */
   white-space: normal; /* Override pre-wrap for bubbles to allow normal wrapping */
 }
 
-/* Ensure specific log types still get their color */
+/* Style for the message content within the bubble */
+.log-message-content {
+  /* Allow content to take space and wrap */
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-width: 0; /* Important for flex wrapping */
+}
+
+/* Style the timestamp */
+.log-timestamp {
+  font-size: 0.8em; /* Smaller font size */
+  color: var(--text-primary); /* Use secondary text color */
+  opacity: 0.8; /* Make it slightly faded */
+  /* Prevent timestamp from shrinking */
+  flex-shrink: 0;
+  /* Align self slightly lower if needed, but baseline should handle it */
+  /* align-self: flex-end; */
+  white-space: nowrap; /* Prevent timestamp from wrapping */
+  margin-left: auto; /* Push to the right if flex layout allows */
+  padding-left: 8px; /* Ensure space if content doesn't wrap */
+}
+
+/* Ensure specific log types still get their color (applied to bubble) */
 .log-info { color: var(--info-color); }
 .log-success { color: var(--success-color); font-weight: bold; }
 .log-error { color: var(--error-color); font-weight: bold; }
 .log-warn { color: var(--warn-color); }
 /* Confirm might use warn color, but ensure it's applied */
 .log-confirm { color: var(--warn-color); font-weight: bold; }
+
+/* Colors should apply to the message content primarily */
+.log-action-bubble .log-message-content {
+    color: inherit; /* Inherit color from parent bubble (.log-success, .log-error etc) */
+}
 
 /* Keep existing styles for debug, gemini, func, etc. */
 /* These will appear as plain text unless they get the bubble class */

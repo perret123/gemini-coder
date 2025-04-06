@@ -599,7 +599,7 @@ function createFileSystemHandlers(context, changesLog) {
          const { messageToDisplay } = args;
          if (!messageToDisplay) return { error: "Missing required argument: messageToDisplay" };
 
-         emitLog(socket, `ℹ️ Info for user: ${messageToDisplay}`, "info");
+         emitLog(socket, `ℹ️ Info for user: ${messageToDisplay}`, "info", true);
          emitContextLogEntry(socket, "info", `Info: ${messageToDisplay}`);
 
          return { success: true, message: "Information displayed to user." };

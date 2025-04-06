@@ -1,5 +1,5 @@
 // c:\dev\gemini-coder\src\client\js\logger.js
-// Modify the function signature to accept isAction (defaulting to false)
+// Modify the function signature to accept isAction (timestamp parameter is no longer needed)
 function addLogMessage(message, type = 'info', isAction = false) {
     const logOutput = document.getElementById('logOutput');
     const logContainer = document.getElementById('logContainer');
@@ -18,13 +18,16 @@ function addLogMessage(message, type = 'info', isAction = false) {
         logEntry.classList.add('log-action-bubble');
     }
 
+    // Create content container
+    const contentSpan = document.createElement('span');
+    contentSpan.className = 'log-message-content';
+
     if (type === 'diff') {
-        // --- Keep the existing diff handling logic ---
+        // --- Keep the existing diff handling logic, but place inside contentSpan ---
         logEntry.classList.add('log-diff'); // Add specific class for easier targeting if needed
         const pre = document.createElement('pre');
         const lines = message.split(/\r?\n/);
-        // ... (rest of the diff parsing logic remains the same) ...
-         let hasContent = false;
+        let hasContent = false;
         lines.forEach(line => {
             const span = document.createElement('span');
             const trimmedLine = line.trim();
@@ -38,18 +41,12 @@ function addLogMessage(message, type = 'info', isAction = false) {
                 span.textContent = line;
                 hasContent = true;
             } else if (line.startsWith('---') || line.startsWith('+++') || line.startsWith('@@')) {
-                 // Diff header/context lines - styled subtly or omitted visually
-                 // Optionally add a class if specific styling is needed:
-                 // span.className = 'diff-header';
-                 span.textContent = line; // Still include for completeness
-                 // Optionally skip adding header lines to pre if desired:
-                 // return;
-                 hasContent = true; // Consider header lines as content for display
+                span.className = 'diff-header';
+                span.textContent = line;
+                hasContent = true;
             } else if (trimmedLine === '' && !hasContent) {
-                // Don't start with an empty line if no diff content yet
                 return;
             } else {
-                // Treat other lines as context
                 span.className = 'diff-context';
                 span.textContent = line;
                 hasContent = true;
@@ -58,28 +55,39 @@ function addLogMessage(message, type = 'info', isAction = false) {
         });
 
         if (pre.hasChildNodes() && hasContent) {
-            logEntry.appendChild(pre);
+            contentSpan.appendChild(pre);
         } else {
-             // Handle cases where the diff message might not contain actual changes
-             // or isn't formatted as expected (e.g., empty diff, simple message)
-             const trimmedMessage = message.trim();
-             if (trimmedMessage !== '' && trimmedMessage !== '(No changes)') {
-                 // Render non-diff content within a pre for consistency if it wasn't empty
-                 const preFallback = document.createElement('pre');
-                 preFallback.textContent = message;
-                 logEntry.appendChild(preFallback);
-             } else {
-                 // Don't add empty or "(No changes)" diff logs
-                return;
-             }
+            const trimmedMessage = message.trim();
+            if (trimmedMessage !== '' && trimmedMessage !== '(No changes)') {
+                const preFallback = document.createElement('pre');
+                preFallback.textContent = message;
+                contentSpan.appendChild(preFallback);
+            } else {
+                return; // Don't add empty or "(No changes)" diff logs
+            }
         }
     } else {
-        // For non-diff types, just set text content
-        logEntry.textContent = message;
+        // For non-diff types, set text content of the contentSpan
+        contentSpan.textContent = message;
     }
 
-    // Append only if there's content (text or diff spans)
-    if (logEntry.textContent || logEntry.querySelector('pre > span')) {
+
+    // Add timestamp span if it's an action bubble
+    if (isAction && type !== 'diff') {
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'log-timestamp';
+        // Generate client-side timestamp
+        const now = new Date();
+        timeSpan.textContent = now.toLocaleTimeString('en-US', { hour12: false });
+        logEntry.appendChild(timeSpan); // Append timestamp after the content
+    }
+
+    
+    // Append contentSpan to logEntry
+    logEntry.appendChild(contentSpan);
+
+    // Append the complete logEntry only if there's content
+    if (contentSpan.textContent.trim() !== '' || contentSpan.querySelector('pre > span')) {
         logOutput.appendChild(logEntry);
         // Scroll to bottom
         requestAnimationFrame(() => {
@@ -90,4 +98,4 @@ function addLogMessage(message, type = 'info', isAction = false) {
 
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { addLogMessage };
-  }
+}
