@@ -148,6 +148,24 @@ function updateInputsFromSelection() {
         return;
     }
 
+    // **MODIFICATION START**: Call clearContextAndStorage instead of updateContextDisplay
+    if (typeof clearContextAndStorage === 'function') {
+        clearContextAndStorage(); // Clear UI, memory, and localStorage
+    } else {
+        console.error("clearContextAndStorage function not found! Cannot clear context properly.");
+        // Fallback: Try to clear UI only if the old function still exists
+        if (typeof updateContextDisplay === 'function') updateContextDisplay([]);
+    }
+    // **MODIFICATION END**
+
+    logOutput.innerHTML = ''; // Always clear logs when switching tasks
+    imageUploadInput.value = ''; // Always clear file selection
+    if (typeof updateUploadTriggerText === 'function') updateUploadTriggerText();
+    if (typeof hideFeedback === 'function') hideFeedback(); // Hide any pending modals
+    if (typeof hideQuestionInput === 'function') hideQuestionInput();
+    if (typeof setControlsEnabled === 'function') setControlsEnabled(true); // Ensure controls are enabled
+
+
     if (selectedTaskId === 'new') {
         // Reset fields for a new task
         baseDirInput.value = '';
@@ -155,13 +173,7 @@ function updateInputsFromSelection() {
         continueContextCheckbox.checked = false; // Default context off for new task
         temperatureSlider.value = 0.7; // Default temperature
         temperatureValueSpan.textContent = parseFloat(temperatureSlider.value).toFixed(1);
-        logOutput.innerHTML = ''; // Clear logs
-        imageUploadInput.value = ''; // Clear file selection
-        if (typeof updateUploadTriggerText === 'function') updateUploadTriggerText();
-        if (typeof hideFeedback === 'function') hideFeedback(); // Hide any pending modals
-        if (typeof hideQuestionInput === 'function') hideQuestionInput();
-        if (typeof setControlsEnabled === 'function') setControlsEnabled(true); // Ensure controls are enabled
-        if (typeof updateContextDisplay === 'function') updateContextDisplay([]); // Clear context display
+        // Logs and context already cleared above
 
         if (typeof addLogMessage === 'function') addLogMessage("Selected 'New Task'. Enter details and click Start.", "info");
 
@@ -175,13 +187,7 @@ function updateInputsFromSelection() {
             continueContextCheckbox.checked = task.continueContext;
             temperatureSlider.value = task.temperature;
             temperatureValueSpan.textContent = parseFloat(task.temperature).toFixed(1);
-            logOutput.innerHTML = ''; // Clear logs when switching tasks
-            imageUploadInput.value = ''; // Clear file selection
-            if (typeof updateUploadTriggerText === 'function') updateUploadTriggerText();
-            if (typeof hideFeedback === 'function') hideFeedback();
-            if (typeof hideQuestionInput === 'function') hideQuestionInput();
-            if (typeof setControlsEnabled === 'function') setControlsEnabled(true); // Ensure controls are enabled
-            if (typeof updateContextDisplay === 'function') updateContextDisplay([]); // Clear context display (will be repopulated if needed on start)
+            // Logs and context already cleared above
 
             if (typeof addLogMessage === 'function') addLogMessage(`Selected task: "${task.title}". Ready.`, "info");
         } else {
@@ -189,7 +195,7 @@ function updateInputsFromSelection() {
             console.error(`Selected task ID ${selectedTaskId} not found! Resetting to 'new'.`);
             selectedTaskId = 'new';
             saveTasks(); // Save the reset selection
-            renderTaskList(); // Re-render to reflect the reset
+            renderTaskList(); // Re-render to reflect the reset (will call updateInputsFromSelection again, clearing context)
         }
     }
 }
@@ -238,10 +244,11 @@ function handleDeleteClick(taskIdToDelete) {
     // If the deleted task was the selected one, switch to 'new' task view
     if (selectedTaskId === taskIdToDelete) {
         selectedTaskId = 'new';
+        // Context for 'new' task will be cleared by updateInputsFromSelection when renderTaskList is called
     }
 
     saveTasks(); // Save the updated task list and selection
-    renderTaskList(); // Re-render the list
+    renderTaskList(); // Re-render the list (this will trigger the context clear)
 
      if (typeof addLogMessage === 'function') {
          addLogMessage(`Task "${taskToDelete.title}" deleted.`, 'info');

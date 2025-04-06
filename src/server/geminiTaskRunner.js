@@ -1,7 +1,7 @@
 const { emitLog, emitContextLog } = require('./utils');
 
 // Helper function to send message with retry logic for specific errors
-async function sendMessageWithRetry(chatSession, message, socket, generationConfig, toolConfig, maxRetries = 3, delay = 30000) {
+async function sendMessageWithRetry(chatSession, message, socket, generationConfig, toolConfig, maxRetries = 3, delay = 120000) {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
         try {
             // Send message with generationConfig. ToolConfig is usually set at chat start.
@@ -83,7 +83,7 @@ async function runGeminiTask(context) {
         questionResolverRef, // Reference object { value: function | null }
         temperature,
         originalPromptForState, // The initial user prompt for saving state correctly
-        retryDelay = 30000, // Initial retry delay in ms
+        retryDelay = 120000, // Initial retry delay in ms
         toolConfig // Pass the toolConfig for retries if needed
     } = context;
 

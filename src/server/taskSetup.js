@@ -288,7 +288,7 @@ Analyze the current request in the context of the original goal and previous cha
             temperature,
             currentChangesLog: currentChangesLogRef.value, // Pass the array for runner access if needed
             originalPromptForState: currentOriginalPromptRef.value, // Pass the correct original prompt
-            retryDelay: process.env.GEMINI_RETRY_DELAY || 30000,
+            retryDelay: process.env.GEMINI_RETRY_DELAY || 120000,
             toolConfig: toolConfig // Pass toolConfig to runner
         };
 

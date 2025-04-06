@@ -1,5 +1,71 @@
 let currentFeedbackCallback = null;
 let currentQuestionCallback = null;
+let currentContextArray = []; // In-memory store for context entries
+const CONTEXT_STORAGE_KEY = 'geminiCoder_activeTaskContext'; // localStorage key
+
+// --- Local Storage Context Management ---
+
+function saveContextToLocalStorage() {
+    try {
+        localStorage.setItem(CONTEXT_STORAGE_KEY, JSON.stringify(currentContextArray));
+    } catch (e) {
+        console.error("Error saving context to localStorage:", e);
+        if (typeof addLogMessage === 'function') {
+            addLogMessage("⚠️ Could not save context changes to local storage.", 'warn');
+        }
+    }
+}
+
+function loadContextFromLocalStorage() {
+    const contextList = document.getElementById('contextList');
+    if (!contextList) {
+        console.error("Element 'contextList' not found during context load.");
+        return;
+    }
+
+    try {
+        const storedContext = localStorage.getItem(CONTEXT_STORAGE_KEY);
+        if (storedContext) {
+            const parsedContext = JSON.parse(storedContext);
+            if (Array.isArray(parsedContext)) {
+                console.log(`Loading ${parsedContext.length} context items from localStorage.`);
+                updateContextDisplay(parsedContext, true); // Pass true to indicate loading from storage
+            } else {
+                console.warn("Invalid context data found in localStorage (not an array), clearing.");
+                clearContextAndStorage();
+            }
+        } else {
+            // No stored context, ensure UI is clear (but don't clear array/storage unless needed)
+             updateContextDisplay([], false); // Explicitly clear UI without touching storage if empty
+            console.log("No previous context found in localStorage.");
+        }
+    } catch (e) {
+        console.error("Error loading context from localStorage:", e);
+        if (typeof addLogMessage === 'function') {
+            addLogMessage("⚠️ Could not load context from local storage.", 'warn');
+        }
+        clearContextAndStorage(); // Clear everything if loading fails
+    }
+}
+
+/**
+ * Clears the context display, the in-memory array, and localStorage.
+ * Called when switching tasks or resetting.
+ */
+function clearContextAndStorage() {
+    updateContextDisplay([], false); // Clear UI only, don't save empty array over potentially existing storage
+    currentContextArray = []; // Clear in-memory array
+    try {
+        localStorage.removeItem(CONTEXT_STORAGE_KEY); // Remove from storage
+        console.log("Cleared context display, in-memory array, and localStorage.");
+    } catch (e) {
+        console.error("Error removing context from localStorage:", e);
+         if (typeof addLogMessage === 'function') {
+            addLogMessage("⚠️ Failed to clear context from local storage.", 'warn');
+        }
+    }
+}
+
 
 // --- Drag/Drop & File Input Helpers ---
 
@@ -86,53 +152,47 @@ function updateUploadTriggerText() {
 // --- Context Display ---
 
 /**
- * Clears the context list and sets an initial message.
- * Used when selecting a new task or explicitly clearing context.
+ * Updates the context list UI based on provided changes.
+ * Can be used for initial load, clearing, or loading from storage.
+ * @param {Array} changes - Array of context entry objects ({type, text}).
+ * @param {boolean} [isLoadingFromStorage=false] - If true, populates the internal array and skips saving.
  */
-function updateContextDisplay(initialChanges = []) {
+function updateContextDisplay(changes = [], isLoadingFromStorage = false) {
     const contextList = document.getElementById('contextList');
     if (!contextList) {
         console.error("Element 'contextList' not found for context display.");
         return;
     }
-    contextList.innerHTML = ''; // Clear existing entries
+    contextList.innerHTML = ''; // Clear existing UI entries
 
-    if (!initialChanges || initialChanges.length === 0) {
+    if (!changes || changes.length === 0) {
         const li = document.createElement('li');
         li.textContent = '(Context will appear here as the task progresses)';
         li.style.fontStyle = 'italic';
         li.style.opacity = '0.7';
         li.classList.add('context-entry-info'); // Add class for potential styling
         contextList.appendChild(li);
+
+        if (!isLoadingFromStorage) {
+            // If we are clearing the display (not during load), clear the array and save
+            currentContextArray = [];
+            saveContextToLocalStorage();
+        }
+
     } else {
-         addContextLogEntry('initial_state', `Resuming task with ${initialChanges.length} previous changes:`);
-         initialChanges.forEach(change => {
-             let text = '';
-             switch (change.type) {
-                 case 'createFile':
-                     text = `File Created: ${change.filePath || '[?]'}`;
-                     break;
-                 case 'updateFile':
-                      text = `File Updated: ${change.filePath || '[?]'}`;
-                      break;
-                 case 'deleteFile':
-                     text = `File Deleted: ${change.filePath || '[?]'}`;
-                     break;
-                 case 'createDirectory':
-                     text = `Folder Created: ${change.directoryPath || '[?]'}`;
-                     break;
-                 case 'deleteDirectory':
-                     text = `Folder Deleted: ${change.directoryPath || '[?]'}`;
-                     break;
-                 case 'moveItem':
-                     text = `Item Moved: ${change.sourcePath || '?'} -> ${change.destinationPath || '?'}`;
-                     break;
-                 default:
-                     text = `Unknown Op: ${JSON.stringify(change)}`;
-             }
-             addContextLogEntry(change.type, text);
-         });
-         addContextLogEntry('resume_prompt', '--- Resuming with new instructions ---');
+        // If loading from storage, replace the in-memory array directly
+        if (isLoadingFromStorage) {
+            currentContextArray = [...changes]; // Make a copy
+        } else {
+             // Otherwise, assume 'changes' represents a new set (like from context-update event)
+             currentContextArray = [...changes]; // Reset the array with the new changes
+             saveContextToLocalStorage(); // Save the new state
+        }
+
+        // Render the entries to the UI
+        currentContextArray.forEach(entry => {
+            renderSingleContextEntry(entry.type, entry.text, contextList);
+        });
     }
 
     // Scroll to the bottom
@@ -142,7 +202,8 @@ function updateContextDisplay(initialChanges = []) {
 }
 
 /**
- * Appends a new entry to the context list.
+ * Appends a new entry to the context list UI AND the in-memory array.
+ * Saves the updated array to localStorage.
  * @param {string} type - A type identifier (e.g., 'initial_prompt', 'question', 'file_write').
  * @param {string} text - The text content for the context entry.
  */
@@ -159,6 +220,30 @@ function addContextLogEntry(type, text) {
         contextList.removeChild(placeholder);
     }
 
+    // Add to the in-memory array
+    const newEntry = { type, text };
+    currentContextArray.push(newEntry);
+
+    // Render the new entry to the UI
+    renderSingleContextEntry(type, text, contextList);
+
+    // Save the updated array
+    saveContextToLocalStorage();
+
+    // Scroll to the bottom to show the latest entry
+    requestAnimationFrame(() => {
+        contextList.scrollTop = contextList.scrollHeight;
+    });
+}
+
+/**
+ * Renders a single context entry LI element to the provided list element.
+ * This is a helper for updateContextDisplay and addContextLogEntry.
+ * @param {string} type
+ * @param {string} text
+ * @param {HTMLElement} contextListElement
+ */
+function renderSingleContextEntry(type, text, contextListElement) {
     const li = document.createElement('li');
     li.classList.add('context-entry', `context-entry-${type}`); // Add classes for styling
 
@@ -190,12 +275,7 @@ function addContextLogEntry(type, text) {
     }
 
     li.textContent = `${prefix} ${text}`;
-    contextList.appendChild(li);
-
-    // Scroll to the bottom to show the latest entry
-    requestAnimationFrame(() => {
-        contextList.scrollTop = contextList.scrollHeight;
-    });
+    contextListElement.appendChild(li);
 }
 
 

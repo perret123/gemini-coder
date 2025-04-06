@@ -102,13 +102,14 @@ async function handleStartTaskClick() {
 
 
     // --- Prepare UI for Task Start ---
-    // Clear logs and context *only* if not continuing context
+    // Clear logs *only* if not continuing context. Context is managed by its own system now.
     if (!continueContext) {
         if (logOutput) logOutput.innerHTML = ''; // Clear logs
-        if (typeof updateContextDisplay === 'function') updateContextDisplay([]); // Clear context panel
+        // Note: We DON'T clear context display here anymore. It's either loaded from storage or managed by task selection.
+        // if (typeof updateContextDisplay === 'function') updateContextDisplay([]); // OLD - REMOVED
     } else {
-         if (typeof addLogMessage === 'function') addLogMessage('ℹ️ Continue Context is enabled. Previous state may be loaded.', 'info');
-         // Context will be loaded by server via 'context-update' or cleared if no state found
+         if (typeof addLogMessage === 'function') addLogMessage('ℹ️ Continue Context is enabled. Previous context (if any) should be visible.', 'info');
+         // Context should already be loaded from localStorage or will be updated by server
     }
 
     if (typeof addLogMessage === 'function') addLogMessage('🚀 Preparing task...', 'info');
@@ -217,7 +218,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Initialize Modules ---
     // Order matters for dependencies (e.g., logger used by others)
     if (typeof loadTheme === 'function') loadTheme(); else console.warn("loadTheme function not found."); // Theme first
-    if (typeof loadTasks === 'function') loadTasks(); else console.warn("loadTasks function not found."); // Load saved tasks
+
+    // **MODIFICATION START**: Load context BEFORE task manager (which might clear it)
+    if (typeof loadContextFromLocalStorage === 'function') {
+        loadContextFromLocalStorage(); // Load context from previous session if available
+    } else {
+        console.warn("loadContextFromLocalStorage function not found. Context persistence disabled.");
+    }
+    // **MODIFICATION END**
+
+    if (typeof loadTasks === 'function') loadTasks(); else console.warn("loadTasks function not found."); // Load saved tasks (might clear context if task selection changes)
     if (typeof renderTaskList === 'function') renderTaskList(); else console.warn("renderTaskList function not found."); // Render task list (needs loaded tasks)
     if (typeof setupFileUploadAndDragDrop === 'function') setupFileUploadAndDragDrop(); else console.warn("setupFileUploadAndDragDrop function not found."); // Setup file handling
     if (typeof initializeSocket === 'function') { // Initialize WebSocket connection
@@ -241,7 +251,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof hideFeedback === 'function') hideFeedback(); // Ensure modals are hidden initially
     if (typeof hideQuestionInput === 'function') hideQuestionInput();
     if (typeof updateUploadTriggerText === 'function') updateUploadTriggerText(); // Set initial state of file button
-    if (typeof updateContextDisplay === 'function') updateContextDisplay([]); // Clear context display initially
+    // Note: Context display is handled by loadContextFromLocalStorage and taskManager selection now
+    // if (typeof updateContextDisplay === 'function') updateContextDisplay([]); // OLD - REMOVED
 
     // --- Attach Core Event Listeners ---
     if (startButton) {
