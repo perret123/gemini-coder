@@ -1,170 +1,149 @@
 // c:\dev\gemini-coder\src\server\utils.js
-const fs = require("fs").promises;
-const path = require("path");
-const diff = require("diff");
+import fs from "node:fs/promises";
+import path from "node:path";
+import { createPatch } from "diff"; // Assuming 'diff' package supports ES module import or has type definitions
 
-// Modify the function signature and add timestamp to UI emission
-function emitLog(socketInstance, message, type = 'info', isAction = false) {
-    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false }); // Keep timestamp generation
+export function emitLog(socketInstance, message, type = 'info', isAction = false) {
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
     const logPrefix = `[${timestamp}] [${type.toUpperCase()}]`;
 
-    // --- Keep existing console logging logic ---
+    // Console logging (respect DEBUG_LOGGING)
     if (type !== 'debug' || process.env.DEBUG_LOGGING === 'true') {
         const consoleMethod = type === 'error' ? console.error : (type === 'warn' ? console.warn : console.log);
         const lines = String(message).split('\n');
         if (lines.length > 1) {
             consoleMethod(`${logPrefix} ${lines[0]}`);
             for(let i = 1; i < lines.length; i++) {
-                consoleMethod(` ${' '.repeat(logPrefix.length-1)} ${lines[i]}`); // Align multi-line logs
+                consoleMethod(`  ${' '.repeat(logPrefix.length -1)} ${lines[i]}`); // Adjusted spacing
             }
         } else {
             consoleMethod(`${logPrefix} ${message}`);
         }
     }
 
+    // Socket emission
     if (socketInstance && socketInstance.connected) {
         try {
-            // Pass the isAction flag AND the timestamp in the emitted data
-            socketInstance.emit('log', {
-                message: message, // Send raw message
-                type,
-                isAction, // Include the flag
-                timestamp: timestamp // <<< ADDED TIMESTAMP HERE
-            });
+            socketInstance.emit('log', { message: message, type, isAction, timestamp: timestamp });
         } catch (emitError) {
-            // Manually add timestamp to console.warn for consistency
             console.warn(`[${new Date().toLocaleTimeString('en-US', { hour12: false })}] [WARN] Failed to emit log to socket ${socketInstance.id}: ${emitError.message}`);
         }
     } else if (socketInstance && !socketInstance.connected) {
-        // Optionally log that the message couldn't be sent if needed
-        // console.log(`[${timestamp}] [DEBUG] Socket ${socketInstance.id} disconnected, log not sent: ${message}`);
+        // Optionally log that the socket was disconnected if trying to emit
+        // console.debug(`[${timestamp}] [DEBUG] Socket ${socketInstance.id} disconnected, log not sent: ${message.substring(0, 50)}...`);
     }
 }
 
-
-// Function to emit context information to the client
-function emitContextLog(socketInstance, contextData) {
+export function emitContextLog(socketInstance, contextData) {
     if (socketInstance && socketInstance.connected) {
         socketInstance.emit("context-update", contextData);
     }
 }
 
-function emitContextLogEntry(socketInstance, type, text) {
+export function emitContextLogEntry(socketInstance, type, text) {
     if (socketInstance && socketInstance.connected) {
-        // Ensure text is a string, even if null/undefined is passed
         const entryText = String(text ?? '(No details provided)');
         const payload = { type: type, text: entryText };
-        // console.debug(`Emitting context entry:`, payload); // Optional debug log
         socketInstance.emit("context-update", payload);
     }
 }
 
-// NEW function for sending the full array
-function emitFullContextUpdate(socketInstance, changesArray) {
+export function emitFullContextUpdate(socketInstance, changesArray) {
     if (socketInstance && socketInstance.connected) {
         if (!Array.isArray(changesArray)) {
-             console.error("emitFullContextUpdate ERROR: changesArray is not an array!", changesArray);
-             // Optionally emit an error or default payload
-             emitContextLogEntry(socketInstance, 'error', 'Internal Server Error: Invalid context data format.');
-             return;
+            // Use emitLog for server-side logging of this internal error
+            emitLog(socketInstance, `emitFullContextUpdate ERROR: changesArray is not an array! Data: ${JSON.stringify(changesArray)}`, 'error');
+            emitContextLogEntry(socketInstance, 'error', 'Internal Server Error: Invalid context data format.');
+            return;
         }
         const payload = { changes: changesArray };
-        // console.debug(`Emitting full context update: ${changesArray.length} items`); // Optional debug log
         socketInstance.emit("context-update", payload);
     }
 }
 
-// Function to generate diff
-function generateDiff(oldContent, newContent, filename) {
-    // Basic check if content is identical
+export function generateDiff(oldContent, newContent, filename) {
     if (oldContent === newContent) {
         return "(No changes)";
     }
-
     try {
-        const patch = diff.createPatch(filename, oldContent || "", newContent || "", undefined, undefined, {
-            context: 3, // Number of context lines around changes
-        });
+        // Ensure filename is treated as a string, provide defaults for content
+        const patch = createPatch(
+            String(filename || 'file'),
+            oldContent || "",
+            newContent || "",
+            undefined, // oldHeader
+            undefined, // newHeader
+            { context: 3 }
+        );
 
-        // Filter out the patch header lines (---, +++, @@) for a cleaner look in the log
+        // Minimal diff format
         const lines = patch.split("\n");
-        const relevantLines = lines.slice(2).filter(line => line.trim() !== "\\ No newline at end of file");
+        // Start from line 3 to skip the standard patch headers (---, +++) if present
+        // Check if the default headers are present before slicing
+        let startIndex = 0;
+        if (lines[0]?.startsWith('---') && lines[1]?.startsWith('+++')) {
+            startIndex = 2;
+        }
+        const relevantLines = lines.slice(startIndex)
+                                  .filter(line => line.trim() !== "\\ No newline at end of file"); // Remove Git specific line
 
-        // Check if, after removing headers, there are any actual change lines left
+        // If only context lines remain, consider it no changes
         if (!relevantLines.some(line => line.startsWith("+") || line.startsWith("-"))) {
-            return "(No changes)"; // Content might differ only by whitespace or metadata ignored by diff
+             // Check if there are *any* lines left besides headers - if not, also no changes.
+             if (relevantLines.filter(line => !line.startsWith("@@")).length === 0) {
+                return "(No changes)";
+             }
         }
 
-        // Add back a simplified header and join lines
-        return `--- a/${filename}\n+++ b/${filename}\n${relevantLines.join("\n")}`;
+        // Reconstruct a minimal diff string for display
+        let minimalDiff = '';
+        if (startIndex === 2) { // Add back headers if they were sliced
+             minimalDiff += lines[0] + '\n' + lines[1] + '\n';
+        }
+        minimalDiff += relevantLines.join("\n");
+
+        return minimalDiff || "(No changes)"; // Return no changes if filtering leaves nothing
+
     } catch (error) {
         console.error(`Error generating diff for ${filename}:`, error);
+        // Maybe emitLog here?
         return "Error generating diff.";
     }
 }
 
-
-/**
- * Requests confirmation from the user via socket event.
- * @param {object} socketInstance - The socket.io socket instance.
- * @param {string} message - The confirmation message.
- * @param {function} setResolverCallback - Callback to set the promise resolver.
- * @param {string|null} [diffData=null] - Optional diff string to display.
- * @returns {Promise<string>} A promise that resolves with the user's decision ('yes', 'no', 'yes/all', 'disconnect', 'error', 'task-end').
- */
-function requestUserConfirmation(socketInstance, message, setResolverCallback, diffData = null) {
+export function requestUserConfirmation(socketInstance, message, setResolverCallback, diffData = null) {
     return new Promise((resolve) => {
-        // Set the resolver function that the 'user-feedback' listener will call
-        setResolverCallback(resolve);
-
-        // Prepare payload
+        setResolverCallback(resolve); // Store the resolve function
         const payload = { message, diff: diffData };
-
-        // Emit the request to the client
         socketInstance.emit('confirmation-request', payload);
-
-        // Log that we are waiting
         emitLog(socketInstance, `⏳ Waiting for user confirmation: ${message}`, 'confirm');
-        // Context log for confirmation request is now handled by the caller (e.g., writeFileContent)
-        // emitContextLog(socketInstance, 'confirmation_request', `Confirm: ${message}`);
+        // Add timeout? Cleanup?
     });
 }
 
-/**
- * Checks if a given path is safely within the specified base directory.
- * @param {string} filePath - The path to check (relative or potentially absolute).
- * @param {string} currentBaseDir - The absolute path of the allowed base directory.
- * @returns {boolean} True if the path is safe, false otherwise.
- */
-function isPathSafe(filePath, currentBaseDir) {
+export function isPathSafe(filePath, currentBaseDir) {
     if (!currentBaseDir || !filePath) {
         console.warn(`isPathSafe check failed: Missing baseDir ('${currentBaseDir}') or filePath ('${filePath}')`);
         return false;
     }
     try {
         const resolvedPath = path.resolve(currentBaseDir, filePath);
-        // Check if the resolved path starts with the base directory path followed by a separator,
-        // or if it *is* the base directory path itself.
+        // Ensure the resolved path starts with the base directory + separator OR is exactly the base dir
         return resolvedPath.startsWith(currentBaseDir + path.sep) || resolvedPath === currentBaseDir;
     } catch (error) {
-        // Path resolution might fail for invalid characters etc.
-        console.error(`Error resolving path safety for \"${filePath}\" against \"${currentBaseDir}\":`, error);
+        // Handle potential errors during path resolution (e.g., invalid characters)
+        console.error(`Error resolving path safety for "${filePath}" against "${currentBaseDir}":`, error);
         return false;
     }
 }
 
-/**
- * Checks if all provided paths are safe relative to the base directory.
- * @param {string[]} paths - An array of relative paths to check.
- * @param {string} currentBaseDir - The absolute path of the allowed base directory.
- * @param {object|null} socket - The socket instance for logging.
- * @returns {{safe: boolean, error?: string}} An object indicating safety and an optional error message.
- */
-function checkSafety(paths, currentBaseDir, socket) {
+// Utility to check safety for multiple paths
+export function checkSafety(paths, currentBaseDir, socket) {
     if (!currentBaseDir) {
         const message = "Operation cannot proceed: Base directory is not defined.";
         emitLog(socket, `🔒 SECURITY ERROR: ${message}`, 'error');
-        emitContextLog(socket, 'error', `Security Error: Base directory not set.`);
+        // Use emitContextLogEntry instead of emitContextLog for single error messages
+        emitContextLogEntry(socket, 'error', `Security Error: Base directory not set.`);
         return { safe: false, error: message };
     }
 
@@ -172,8 +151,8 @@ function checkSafety(paths, currentBaseDir, socket) {
 
     if (unsafePaths.length > 0) {
         const message = `Access denied: Path(s) are outside the allowed base directory ('${path.basename(currentBaseDir)}'). Unsafe paths: ${unsafePaths.join(', ')}`;
-         emitLog(socket, `🔒 SECURITY WARNING: ${message}`, 'warn');
-         emitContextLog(socket, 'error', `Security Error: Path outside base directory (${unsafePaths.join(', ')})`);
+        emitLog(socket, `🔒 SECURITY WARNING: ${message}`, 'warn');
+        emitContextLogEntry(socket, 'error', `Security Error: Path outside base directory (${unsafePaths.join(', ')})`);
         return { safe: false, error: message };
     }
 
@@ -181,35 +160,29 @@ function checkSafety(paths, currentBaseDir, socket) {
 }
 
 
-/**
- * Recursively gets the directory structure, respecting .gitignore and max depth.
- * @param {string} dirPath - The current directory path being scanned.
- * @param {string} baseDir - The root base directory for relative path calculation.
- * @param {object} ig - An 'ignore' instance preloaded with rules.
- * @param {number} [maxDepth=2] - The maximum depth to scan.
- * @param {number} [currentDepth=0] - The current recursion depth.
- * @param {string} [indent=''] - The indentation string for formatting.
- * @returns {Promise<string[]>} A promise resolving to an array of strings representing the structure.
- */
-async function getDirectoryStructure(dirPath, baseDir, ig, maxDepth = 2, currentDepth = 0, indent = '') {
+export async function getDirectoryStructure(dirPath, baseDir, ig, maxDepth = 2, currentDepth = 0, indent = '') {
+    // Prevent infinite loops for excessive depth
     if (currentDepth > maxDepth) {
-        // Indicate truncation only if there might be more content
-        // Check if the directory actually has non-ignored children before adding [...]
+        // Check if the directory has any non-ignored children before adding [...]
         try {
             const entries = await fs.readdir(dirPath);
-             const hasVisibleChildren = entries.some(entryName => {
-                 const entryPath = path.join(dirPath, entryName);
-                 const relativePath = path.relative(baseDir, entryPath);
-                 const posixRelativePath = relativePath.split(path.sep).join(path.posix.sep);
-                 return !ig.ignores(posixRelativePath) && !ig.ignores(posixRelativePath + '/');
-             });
-             if (hasVisibleChildren) {
-                 return [`${indent}[...]`]; // Use simple [...] indicator
-             } else {
+            const hasVisibleChildren = entries.some(entryName => {
+                const entryPath = path.join(dirPath, entryName);
+                const relativePath = path.relative(baseDir, entryPath);
+                // Convert to POSIX separators for ignore checking
+                const posixRelativePath = relativePath.split(path.sep).join(path.posix.sep);
+                // Check both file and potential directory paths
+                return !ig.ignores(posixRelativePath) && !ig.ignores(posixRelativePath + '/');
+            });
+            if (hasVisibleChildren) {
+                 return [`${indent}[...]`]; // Indicate truncated structure
+            } else {
                  return []; // No visible children, return empty
-             }
-        } catch {
-            return []; // Error reading directory, assume empty for structure
+            }
+        } catch (err) {
+             // If readdir fails (e.g., permissions), return empty or indicate error?
+            // console.warn(`Could not check children of ${dirPath} at max depth: ${err.message}`);
+            return []; // Keep it simple, return empty
         }
     }
 
@@ -217,8 +190,8 @@ async function getDirectoryStructure(dirPath, baseDir, ig, maxDepth = 2, current
     try {
         const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
-        // Sort entries: directories first, then alphabetically
-         const sortedEntries = entries.sort((a, b) => {
+        // Sort entries: directories first, then files, alphabetically within each group
+        const sortedEntries = entries.sort((a, b) => {
             const aIsDir = a.isDirectory();
             const bIsDir = b.isDirectory();
             if (aIsDir && !bIsDir) return -1;
@@ -226,67 +199,47 @@ async function getDirectoryStructure(dirPath, baseDir, ig, maxDepth = 2, current
             return a.name.localeCompare(b.name);
         });
 
-
         for (const entry of sortedEntries) {
             const entryPath = path.join(dirPath, entry.name);
             const relativePath = path.relative(baseDir, entryPath);
-            // Use POSIX separators for consistency in display and ignore matching
+            // Convert to POSIX separators for ignore checking consistency
             const posixRelativePath = relativePath.split(path.sep).join(path.posix.sep);
 
-            // Determine path to check against ignore rules (append '/' for dirs)
+            // Determine path to check against .gitignore (add trailing slash for dirs)
             const pathToFilter = entry.isDirectory() ? `${posixRelativePath}/` : posixRelativePath;
 
             if (ig.ignores(pathToFilter)) {
-                continue; // Skip ignored entries
+                continue; // Skip ignored files/directories
             }
 
-            // Use the POSIX path for display
+            // Use POSIX path for display consistency
             const displayPath = posixRelativePath;
 
             if (entry.isDirectory()) {
                 structure.push(`${indent}📁 ${displayPath}/`);
-                // Recurse only if not exceeding max depth
-                 // No need to check currentDepth < maxDepth again, handled at function start
                 const subStructure = await getDirectoryStructure(
                     entryPath,
                     baseDir,
                     ig,
                     maxDepth,
-                    currentDepth + 1, // Increment depth
-                    indent + '  ' // Increase indent
+                    currentDepth + 1,
+                    indent + '  ' // Use two spaces for clearer indentation
                 );
-                 // Add substructure only if it's not empty or just the truncation indicator
+                 // Only add substructure if it contains something
                  if (subStructure.length > 0) {
-                      structure = structure.concat(subStructure);
+                    structure = structure.concat(subStructure);
                  }
-                 // If substructure is empty, we don't add anything further for this dir
-
             } else if (entry.isFile()) {
-                 structure.push(`${indent}📄 ${displayPath}`);
+                structure.push(`${indent}📄 ${displayPath}`);
             }
-            // Ignore other entry types (symlinks, etc.) for simplicity
+            // Ignore other types like symlinks for simplicity unless needed
         }
     } catch (error) {
-         // Log error but don't crash the structure generation
-         console.error(`Error reading directory ${dirPath}: ${error.message}`);
-         const relativeDirPath = path.relative(baseDir, dirPath) || '.';
-         structure.push(`${indent}[Error reading content of ${relativeDirPath.split(path.sep).join(path.posix.sep)}]`);
+        // Log specific error but provide a generic message in the structure
+        console.error(`Error reading directory ${dirPath}: ${error.message}`);
+        const relativeDirPath = path.relative(baseDir, dirPath) || '.'; // Handle base dir itself
+        structure.push(`${indent}[Error reading content of ${relativeDirPath.split(path.sep).join(path.posix.sep)}]`);
     }
-
-    // Filter out empty lines just in case, and remove trailing truncation markers if they are the only thing left
-     return structure.filter(line => line.trim() !== '');
-     // Don't filter [...], it indicates truncation. Filtering was done inside the depth check.
+    // Filter out empty lines which might occur if a directory read fails silently
+    return structure.filter(line => line.trim() !== '');
 }
-
-
-module.exports = {
-    emitLog,
-    emitContextLog, // Export the new context logger
-    emitContextLogEntry,
-    emitFullContextUpdate,
-    requestUserConfirmation,
-    isPathSafe,
-    checkSafety,
-    getDirectoryStructure,
-    generateDiff,
-};

@@ -2,11 +2,14 @@
   "name": "gemini-coder",
   "version": "1.0.0",
   "description": "",
-  "main": "gemini-coder.js",
+  "main": "src/server/server.js",
+  "type": "module",
   "scripts": {
     "start": "node src/server/server.js",
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch",
     "test": "mocha --require test/setup.js test/**/*.test.js",
-    "watch": "nodemon src/server/server.js"
+    "watch:server": "nodemon src/server/server.js"
   },
   "keywords": [],
   "author": "",
@@ -25,8 +28,14 @@
   },
   "devDependencies": {
     "cpx": "^1.5.0",
+    "eslint": "^9.24.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-typescript": "^0.14.0",
     "jsdom": "^26.0.0",
     "mocha": "^11.1.0",
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "webpack": "^5.99.5",
+    "webpack-cli": "^6.0.1"
   }
 }

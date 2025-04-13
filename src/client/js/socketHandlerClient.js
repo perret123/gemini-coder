@@ -1,451 +1,287 @@
+// c:\dev\gemini-coder\src\client\js\socketHandlerClient.js
+import {
+    addLogMessage
+} from "./logger.js";
+import {
+    setControlsEnabled,
+    updateContextDisplay,
+    addContextLogEntry,
+    showFeedback,
+    hideFeedback,
+    showQuestionInput,
+    hideQuestionInput,
+    displayImageResult // Assuming this is now in uiHelpers
+} from "./uiHelpers.js";
+
+
+// Module-level state
 let socket = null;
-let currentConfirmationCallback = null;
-let currentQuestionResponseCallback = null;
+let currentConfirmationCallback = null; // Stores resolve function for confirmation promise
+let currentQuestionResponseCallback = null; // Stores resolve function for question promise
 
-/**
- * Initializes the Socket.IO connection and sets up event listeners.
- * @returns {SocketIOClient.Socket} The initialized socket instance.
- */
-function initializeSocket() {
-  // Disconnect previous socket if exists and connected
-  if (socket && socket.connected) {
-    console.log("Disconnecting existing socket before reconnecting.");
-    socket.disconnect();
-  }
+// Function to initialize the socket connection and set up listeners
+export function initializeSocket() {
+    // Disconnect existing socket if trying to re-initialize (e.g., on manual refresh)
+    if (socket && socket.connected) {
+        console.log("Disconnecting existing socket before reconnecting.");
+        socket.disconnect();
+    }
 
-  console.log("Initializing new socket connection...");
-  socket = io({ path: "/socket.io" }); // Use default path
+    console.log("Initializing new socket connection...");
+    // Connect to the server (path is important if server uses a specific path)
+    // Use relative path if served from same origin, otherwise full URL
+    socket = io({ path: "/socket.io" }); // Matches default server path
 
-  // --- Connection Lifecycle Events ---
+    // --- Socket Event Listeners ---
 
-  socket.on("connect", () => {
-    console.log("Socket connected to server:", socket.id);
-    if (typeof addLogMessage === "function") {
-      addLogMessage("🔌 Connected to server.", "success", true);
-    }
-    // Hide disconnect notice
-    const disconnectNotice = document.getElementById("disconnectNotice");
-    if (disconnectNotice) {
-      disconnectNotice.style.display = "none";
-    }
-    // Enable controls (optional, might depend on app logic)
-    const taskControls = document.getElementById("taskControls");
-    if (taskControls && typeof setControlsEnabled === 'function') {
-      // Assuming controls should be enabled on connect if not mid-task
-      // setControlsEnabled(true); // Be cautious if tasks can resume automatically
-    }
-  });
+    socket.on("connect", () => {
+        console.log("Socket connected to server:", socket.id);
+        addLogMessage("🔌 Connected to server.", "success", true);
 
-  socket.on("disconnect", (reason) => {
-    console.log("Socket disconnected from server. Reason:", reason);
-    if (typeof addLogMessage === "function") {
-      addLogMessage(
-        `🔌 Disconnected from server (${reason}). Please refresh or check connection.`,
-        "error",
-        true
-      );
-    }
-    // Show disconnect notice
-    const disconnectNotice = document.getElementById("disconnectNotice");
-    if (disconnectNotice) {
-      disconnectNotice.textContent = `Disconnected: ${reason}. Attempting to reconnect...`;
-      disconnectNotice.style.display = "block";
-    }
-    // Disable controls on disconnect
-    if (typeof setControlsEnabled === 'function') {
-        setControlsEnabled(false); // Disable controls when disconnected
-    }
-     // Clear any pending callbacks on disconnect
-    if (currentConfirmationCallback) {
-        console.warn("Disconnecting with pending confirmation. Resolving as 'disconnect'.");
-        currentConfirmationCallback("disconnect");
-        currentConfirmationCallback = null;
-    }
-    if (currentQuestionResponseCallback) {
-        console.warn("Disconnecting with pending question. Resolving as 'disconnect'.");
-        currentQuestionResponseCallback("disconnect");
-        currentQuestionResponseCallback = null;
-    }
-  });
+        // Hide disconnect notice if shown
+        const disconnectNotice = document.getElementById("disconnectNotice");
+        if (disconnectNotice) {
+            disconnectNotice.style.display = "none";
+        }
+        // Enable controls on connect (initial state or reconnect)
+        setControlsEnabled(true); // Now uses imported function
+         // Update button state might be needed if connection drops mid-task
+         updateTaskControlButtonState(false); // Set button to "Start Task"
+    });
 
-  socket.on("connect_error", (error) => {
-    console.error("Socket connection error:", error);
-    if (typeof addLogMessage === "function") {
-      addLogMessage(
-        `🔌 Connection Error: ${error.message}. Server might be down.`,
-        "error",
-        true
-      );
-    }
-    // Show detailed error in disconnect notice
-    const disconnectNotice = document.getElementById("disconnectNotice");
-    if (disconnectNotice) {
-      disconnectNotice.textContent = `Connection Error: ${error.message}. Retrying...`;
-      disconnectNotice.style.display = "block";
-    }
-     // Disable controls on connection error
-     if (typeof setControlsEnabled === 'function') {
+    socket.on("disconnect", (reason) => {
+        console.log("Socket disconnected from server. Reason:", reason);
+        addLogMessage(`🔌 Disconnected from server (${reason}). Please refresh or check connection.`, "error", true);
+
+        // Show disconnect notice
+        const disconnectNotice = document.getElementById("disconnectNotice");
+        if (disconnectNotice) {
+            disconnectNotice.textContent = `Disconnected: ${reason}. Attempting to reconnect...`;
+            disconnectNotice.style.display = "block";
+        }
+        // Disable controls on disconnect
         setControlsEnabled(false);
-    }
-  });
+        updateTaskControlButtonState(false); // Ensure button reflects disconnected state
 
-  // --- Custom Application Events ---
-
-  socket.on("log", (data) => {
-    if (data && data.message) {
-      if (typeof addLogMessage === "function") {
-        const isAction = data.isAction || false; // Default isAction to false
-        addLogMessage(data.message, data.type || "info", isAction);
-      } else {
-        // Fallback if addLogMessage isn't available
-        console.log(`Server Log [${data.type || "info"}]: ${data.message}`);
-      }
-    } else {
-      console.warn("Received incomplete log data:", data);
-    }
-  });
-
-  // *** !!! THIS IS THE CORRECTED LISTENER !!! ***
-  socket.on("context-update", (data) => {
-    console.log("Received context update:", data);
-
-    // Ensure the necessary UI update functions exist
-    const canUpdateFull = typeof updateContextDisplay === 'function';
-    const canAddEntry = typeof addContextLogEntry === 'function';
-
-    if (!canUpdateFull && !canAddEntry) {
-        console.warn("Neither updateContextDisplay nor addContextLogEntry function available for context update.");
-        return;
-    }
-
-    // Check if it's a full update (contains the 'changes' array)
-    if (data && data.changes && Array.isArray(data.changes)) {
-        if (canUpdateFull) {
-            console.log(`Processing full context update with ${data.changes.length} items.`);
-            // The 'false' here indicates it's not the initial load *from localStorage*,
-            // but rather a full update from the server. updateContextDisplay handles saving.
-            updateContextDisplay(data.changes, false);
-        } else {
-            console.warn("Received full context update, but updateContextDisplay function is missing.");
-            // Maybe try to add entries one by one if addContextLogEntry exists? (Less ideal)
-            if (canAddEntry) {
-                 console.warn("Attempting to add entries individually (less efficient).");
-                 data.changes.forEach(entry => {
-                     if(entry && entry.type && typeof entry.text !== 'undefined') {
-                         addContextLogEntry(entry.type, entry.text);
-                     }
-                 });
-            }
-        }
-    }
-    // Check if it's a single entry update (contains 'type' and 'text')
-    else if (data && typeof data === 'object' && data.type && typeof data.text !== 'undefined') {
-        if (canAddEntry) {
-            console.log(`Adding single context entry: ${data.type} - ${String(data.text).substring(0, 50)}...`);
-            addContextLogEntry(data.type, data.text);
-        } else {
-            console.warn("Received single context entry, but addContextLogEntry function is missing.");
-            // If only full update is possible, this single entry might get lost unless
-            // we fetch the current state, add to it, and call updateContextDisplay (complex).
-        }
-    }
-    // Handle unexpected data structures
-    else {
-        console.warn("Received context update with unexpected data structure:", data);
-        if(typeof addLogMessage === 'function') {
-            addLogMessage(`[WARN] Received invalid context data structure from server: ${JSON.stringify(data)}`, 'warn');
-        }
-    }
-});
-
-
-  socket.on("confirmation-request", (data) => {
-    if (data && data.message) {
-      // Log the request first
-      if (typeof addLogMessage === "function") {
-        addLogMessage(`⚠️ CONFIRMATION REQUIRED: ${data.message}`, "confirm", true);
-      }
-      // Log the diff if present
-      if (data.diff && typeof data.diff === "string" && data.diff.trim() !== "" && data.diff !== "(No changes)") {
-        if (typeof addLogMessage === "function") {
-            addLogMessage(data.diff, "diff");
-        } else {
-            console.log("Diff:\n", data.diff);
-        }
-      } else if (data.diff === "(No changes)") {
-         if (typeof addLogMessage === "function") {
-            addLogMessage("(No file content changes)", "info");
-         }
-      }
-
-      // Show the feedback UI
-      if (typeof showFeedback === "function") {
-        // Clear any existing callback first (safety)
+        // Handle pending interactions on disconnect
         if (currentConfirmationCallback) {
-            console.warn("New confirmation request received while another was pending. Overwriting old callback.");
-            // Optionally, auto-reject the previous one or log an error
-            // currentConfirmationCallback('error');
+            console.warn(`Disconnecting with pending confirmation. Resolving as "disconnect"`);
+            currentConfirmationCallback("disconnect"); // Resolve promise with "disconnect"
+            currentConfirmationCallback = null; // Clear callback
         }
-
-        currentConfirmationCallback = (userResponse) => {
-          const confirmed = userResponse === 'yes' || userResponse === 'yes/all';
-          console.log(`Sending confirmation response: Confirmed=${confirmed}, Decision='${userResponse}'`);
-          socket.emit("confirmation-response", { confirmed: confirmed, decision: userResponse });
-          currentConfirmationCallback = null; // Clear callback after use
-
-          // Re-enable controls AFTER responding (server might disable again)
-          // Consider if re-enabling should wait for task state update
-          // if (typeof setControlsEnabled === 'function') {
-          //   setControlsEnabled(true);
-          // }
-          if (typeof hideFeedback === 'function') {
-             hideFeedback();
-          }
-        };
-
-        // Pass the message and the newly created callback to the UI function
-        showFeedback(data.message, currentConfirmationCallback);
-        // Controls should have been disabled by showFeedback
-
-      } else {
-        console.error("showFeedback function not found. Cannot ask user for confirmation.");
-        // Automatically reject if UI is unavailable
-        socket.emit("confirmation-response", { confirmed: false, decision: 'error', error: 'UI component (showFeedback) not available' });
-        if (typeof addLogMessage === "function") {
-            addLogMessage("❌ UI Error: Could not display confirmation dialog. Action automatically rejected.", "error", true);
-        }
-        // Ensure controls are re-enabled if UI fails
-        if (typeof setControlsEnabled === 'function') {
-            setControlsEnabled(true);
-        }
-      }
-    } else {
-      console.error("Received invalid confirmation request data:", data);
-      if (typeof addLogMessage === "function") {
-            addLogMessage(`❌ Received invalid confirmation request from server.`, "error", true);
-      }
-       // Ensure controls are enabled if request is bad
-       if (typeof setControlsEnabled === 'function') {
-            setControlsEnabled(true);
-        }
-    }
-  });
-
-  socket.on("ask-question-request", (data) => {
-    if (data && data.question) {
-      if (typeof addLogMessage === "function") {
-        addLogMessage(`❓ QUESTION FOR YOU: ${data.question}`, "confirm", true);
-      }
-
-      if (typeof showQuestionInput === "function") {
-         // Clear any existing callback first (safety)
         if (currentQuestionResponseCallback) {
-            console.warn("New question request received while another was pending. Overwriting old callback.");
-            // currentQuestionResponseCallback('error');
+             console.warn(`Disconnecting with pending question. Resolving as "disconnect"`);
+             currentQuestionResponseCallback("disconnect"); // Resolve promise with "disconnect"
+             currentQuestionResponseCallback = null; // Clear callback
         }
+    });
 
-        currentQuestionResponseCallback = (userResponse) => {
-          console.log(`Sending question response: ${JSON.stringify(userResponse)}`);
-          socket.emit("question-response", { answer: userResponse });
-          currentQuestionResponseCallback = null; // Clear callback after use
+    socket.on("connect_error", (error) => {
+        console.error("Socket connection error:", error);
+        addLogMessage(`🔌 Connection Error: ${error.message}. Server might be down.`, "error", true);
 
-          // Re-enable controls AFTER responding
-          // if (typeof setControlsEnabled === 'function') {
-          //   setControlsEnabled(true);
-          // }
-           if (typeof hideQuestionInput === 'function') {
-             hideQuestionInput();
-          }
-        };
-
-        showQuestionInput(data.question, currentQuestionResponseCallback);
-        // Controls should have been disabled by showQuestionInput
-
-      } else {
-        console.error("showQuestionInput function not found. Cannot ask user.");
-        // Send error response if UI is unavailable
-        socket.emit("question-response", { answer: { type: 'error', value: 'UI component (showQuestionInput) not available' } });
-         if (typeof addLogMessage === "function") {
-            addLogMessage("❌ UI Error: Could not display question dialog. Unable to answer.", "error", true);
+        // Show detailed error notice
+        const disconnectNotice = document.getElementById("disconnectNotice");
+        if (disconnectNotice) {
+            disconnectNotice.textContent = `Connection Error: ${error.message}. Retrying...`;
+            disconnectNotice.style.display = "block";
         }
-        // Ensure controls are re-enabled if UI fails
-        if (typeof setControlsEnabled === 'function') {
-            setControlsEnabled(true);
+        setControlsEnabled(false); // Disable controls on connection error
+        updateTaskControlButtonState(false); // Ensure button reflects error state
+    });
+
+    // Listener for server logs
+    socket.on("log", (data) => {
+        if (data && data.message) {
+            const isAction = data.isAction || false;
+            addLogMessage(data.message, data.type || "info", isAction);
+        } else {
+            console.warn("Received incomplete log data:", data);
         }
-      }
-    } else {
-      console.error("Received invalid question request data:", data);
-       if (typeof addLogMessage === "function") {
-            addLogMessage(`❌ Received invalid question request from server.`, "error", true);
+    });
+
+    // Listener for context updates (full or partial)
+    socket.on("context-update", (data) => {
+        console.log("Received context update:", data);
+
+        // Check if it"s a full update (contains "changes" array)
+        if (data && data.changes && Array.isArray(data.changes)) {
+            console.log(`Processing full context update with ${data.changes.length} items.`);
+            updateContextDisplay(data.changes, false); // Update the entire display
         }
-        // Ensure controls are enabled if request is bad
-       if (typeof setControlsEnabled === 'function') {
-            setControlsEnabled(true);
+        // Check if it"s a single entry update
+        else if (data && typeof data === "object" && data.type && typeof data.text !== "undefined") {
+            console.log(`Adding single context entry: ${data.type} - ${String(data.text).substring(0, 50)}...`);
+            addContextLogEntry(data.type, data.text); // Add single entry
+        } else {
+            console.warn("Received context update with unexpected data structure:", data);
+            addLogMessage(`[WARN] Received invalid context data structure from server: ${JSON.stringify(data)}`, "warn");
         }
-    }
-  });
+    });
 
+    // Listener for confirmation requests from the server
+    socket.on("confirmation-request", (data) => {
+        if (data && data.message) {
+            addLogMessage(`⚠️ CONFIRMATION REQUIRED: ${data.message}`, "confirm", true);
 
-  // --- Task Status Events ---
+            // Display diff if provided and not empty/no changes
+             if (data.diff && typeof data.diff === "string" && data.diff.trim() !== "" && data.diff !== "(No changes)") {
+                addLogMessage(data.diff, "diff");
+             } else if (data.diff === "(No changes)") {
+                 addLogMessage("(No file content changes)", "info");
+             }
 
-  socket.on("task-running", () => {
-    console.log("Server signaled task is running.");
-    if (typeof addLogMessage === "function") {
-      addLogMessage("⏳ Task is running...", "info", true);
-    }
-    // Update button state visually (e.g., disable start, show "Running...")
-    if (typeof updateTaskControlButtonState === "function") {
-      updateTaskControlButtonState(true); // true = running
-    } else if (typeof setControlsEnabled === 'function') {
-        setControlsEnabled(false); // General disable as fallback
-    }
-  });
+            // Show feedback modal and set up callback
+            if (currentConfirmationCallback) {
+                console.warn("New confirmation request received while another was pending. Overwriting old callback.");
+                // Optionally resolve the old one as "cancelled"?
+                // currentConfirmationCallback("cancelled_by_new_request");
+            }
+            // Create the callback function that will be called by the modal button listeners
+            currentConfirmationCallback = (userResponse) => { // userResponse = "yes", "no", "yes/all", "disconnect", "error", "task-end"
+                const confirmed = userResponse === "yes" || userResponse === "yes/all";
+                console.log(`Sending confirmation response: Confirmed=${confirmed}, Decision="${userResponse}"`);
+                socket.emit("confirmation-response", { confirmed: confirmed, decision: userResponse });
+                currentConfirmationCallback = null; // Clear callback after use
+                hideFeedback(); // Hide modal after response sent
+                // Controls are typically re-enabled by task-complete/task-error, not here
+            };
+            showFeedback(data.message, currentConfirmationCallback); // Show the modal
 
-  socket.on("task-complete", (data) => {
-    const message = data?.message || "Task finished successfully.";
-    console.log("Server signaled task complete:", message);
-    if (typeof addLogMessage === "function") {
-      addLogMessage(`✅ Task Finished: ${message}`, "success", true);
-    }
-    // Update button state (e.g., re-enable start button)
-    if (typeof updateTaskControlButtonState === "function") {
-      updateTaskControlButtonState(false); // false = not running
-    } else if (typeof setControlsEnabled === 'function') {
-        setControlsEnabled(true); // General enable as fallback
-    }
-     // Emit internal event to potentially save state (listened for in socketListeners.js on server)
-     socket.emit("task-complete", data);
-  });
+        } else {
+            console.error("Received invalid confirmation request data:", data);
+            addLogMessage(`❌ Received invalid confirmation request from server.`, "error", true);
+            setControlsEnabled(true); // Re-enable controls if request was bad
+            updateTaskControlButtonState(false);
+        }
+    });
 
-  socket.on("task-error", (data) => {
-    const message = data?.message || "An unknown error occurred.";
-    console.error("Server signaled task error:", message);
-    if (typeof addLogMessage === "function") {
-      addLogMessage(`❌ Task Error: ${message}`, "error", true);
-    }
-    // Update button state (e.g., re-enable start button)
-    if (typeof updateTaskControlButtonState === "function") {
-      updateTaskControlButtonState(false); // false = not running
-    } else if (typeof setControlsEnabled === 'function') {
-        setControlsEnabled(true); // General enable as fallback
-    }
-    // Emit internal event to potentially clear state (listened for in socketListeners.js on server)
-    socket.emit("task-error", data);
-  });
+    // Listener for questions from the server
+    socket.on("ask-question-request", (data) => {
+         if (data && data.question) {
+             addLogMessage(`❓ QUESTION FOR YOU: ${data.question}`, "confirm", true);
 
-  // --- Other Events ---
+             if (currentQuestionResponseCallback) {
+                 console.warn("New question request received while another was pending. Overwriting old callback.");
+             }
 
-  socket.on("display-image", (data) => {
-    if (data && data.imageUrl && data.prompt) {
-      console.log(`Received image to display for prompt: ${data.prompt}`);
-      if (typeof addLogMessage === "function") {
-        addLogMessage(`🖼️ Received image for prompt: \"${data.prompt}\"`, "info", true);
-      }
-      if (typeof displayImageResult === "function") {
-        displayImageResult(data.imageUrl, data.prompt);
-      } else {
-        console.warn("displayImageResult function not available to show image.");
-      }
-    } else {
-      console.warn("Received invalid display-image data:", data);
-    }
-  });
+             // Setup callback for when user responds via modal
+             currentQuestionResponseCallback = (userResponse) => { // userResponse = {type:"text"/"button", value:"..."} or "disconnect"/"error"/"task-end"
+                 console.log(`Sending question response: ${JSON.stringify(userResponse)}`);
+                 socket.emit("question-response", { answer: userResponse }); // Send answer object
+                 currentQuestionResponseCallback = null; // Clear callback
+                 hideQuestionInput(); // Hide modal after response
+                 // Controls re-enabled by task-complete/task-error
+             };
+             showQuestionInput(data.question, currentQuestionResponseCallback); // Show modal
 
+         } else {
+             console.error("Received invalid question request data:", data);
+             addLogMessage(`❌ Received invalid question request from server.`, "error", true);
+             setControlsEnabled(true); // Re-enable controls if request was bad
+             updateTaskControlButtonState(false);
+         }
+    });
 
-  console.log("Socket initialization complete. Event listeners attached.");
-  return socket;
+     // Listener for task status updates
+     socket.on("task-running", () => {
+        console.log("Server signaled task is running.");
+        addLogMessage("⏳ Task is running...", "info", true);
+        updateTaskControlButtonState(true); // Update button to "Running..." state
+    });
+
+    socket.on("task-complete", (data) => {
+        const message = data?.message || "Task finished successfully.";
+        console.log("Server signaled task complete:", message);
+        addLogMessage(`✅ Task Finished: ${message}`, "success", true);
+        updateTaskControlButtonState(false); // Update button to "Start Task"
+        setControlsEnabled(true); // Re-enable all controls
+        // Server side handles state saving, client just updates UI
+        // Client might need to signal back receipt? Server `task-complete` listener handles this.
+        // socket.emit("task-complete-ack", { messageId: data?.id }); // Example ack
+    });
+
+    socket.on("task-error", (data) => {
+        const message = data?.message || "An unknown error occurred.";
+        console.error("Server signaled task error:", message);
+        addLogMessage(`❌ Task Error: ${message}`, "error", true);
+        updateTaskControlButtonState(false); // Update button to "Start Task"
+        setControlsEnabled(true); // Re-enable all controls
+         // Server side handles state clearing, client just updates UI
+         // socket.emit("task-error-ack", { messageId: data?.id }); // Example ack
+    });
+
+     // Listener to display images (e.g., generated by AI)
+    socket.on("display-image", (data) => {
+        if (data && data.imageUrl && data.prompt) {
+            console.log(`Received image to display for prompt: ${data.prompt}`);
+            addLogMessage(`🖼️ Received image for prompt: "${data.prompt}"`, "info", true);
+            displayImageResult(data.imageUrl, data.prompt); // Call the UI helper
+        } else {
+            console.warn("Received invalid display-image data:", data);
+        }
+    });
+
+    console.log("Socket initialization complete. Event listeners attached.");
+    return socket; // Return the initialized socket instance
 }
 
-/**
- * Sends task details to the server to initiate processing.
- * @param {object} taskDetails - The details of the task (baseDir, prompt, etc.).
- */
-function sendTaskToServer(taskDetails) {
-  if (socket && socket.connected) {
-    socket.emit("start-task", taskDetails);
-    console.log("Task details sent to server:", taskDetails);
-    // Optionally disable controls immediately after sending
-    if (typeof setControlsEnabled === 'function') {
-       // setControlsEnabled(false); // Server's "task-running" might be preferred
+// Function to send task details to the server
+export function sendTaskToServer(taskDetails) {
+    if (socket && socket.connected) {
+        socket.emit("start-task", taskDetails); // Use "start-task" event
+        console.log("Task details sent to server:", taskDetails);
+         updateTaskControlButtonState(true); // Set button to running immediately on send
+         // setControlsEnabled(false); // Controls are disabled in handleStartTaskClick before calling this
+    } else {
+        console.error("Socket not connected. Cannot send task.");
+        addLogMessage("❌ Error: Not connected to server. Cannot start task.", "error", true);
+        updateTaskControlButtonState(false); // Reset button if send fails
+        setControlsEnabled(true); // Re-enable controls if send fails due to connection
     }
-  } else {
-    console.error("Socket not connected. Cannot send task.");
-    if (typeof addLogMessage === "function") {
-      addLogMessage("❌ Error: Not connected to server. Cannot start task.", "error", true);
-    }
-    // Ensure controls are visually consistent if sending fails
-    if (typeof updateTaskControlButtonState === "function") {
-      updateTaskControlButtonState(false); // Ensure button shows "Start Task"
-    } else if(typeof setControlsEnabled === 'function') {
-        setControlsEnabled(true); // Ensure controls enabled if start fails
-    }
-  }
 }
 
-/**
- * Sends a generic message to the server.
- * @param {string} type - The event type/name.
- * @param {any} data - The data payload.
- */
-function sendMessage(type, data) {
+// Generic message sender (if needed for other events)
+export function sendMessage(type, data) {
     if (socket && socket.connected) {
         socket.emit(type, data);
     } else {
         console.error(`Socket not connected. Cannot send message type: ${type}`);
-         if (typeof addLogMessage === "function") {
-             // Avoid logging for very frequent messages if needed
-             // addLogMessage(`❌ Error: Not connected. Cannot send '${type}'.`, "error");
-         }
+        // Optionally log error to UI
+        // addLogMessage(`❌ Error: Not connected. Cannot send message: ${type}`, "error");
     }
 }
 
-// --- Optional Helper ---
-/**
- * Updates the visual state of the main task control button.
- * @param {boolean} isRunning - True if the task is running, false otherwise.
- */
-function updateTaskControlButtonState(isRunning) {
-    const startButton = document.getElementById('startButton');
-    const controlsToDisable = [
-        "baseDir", "prompt", "continueContext", "temperatureSlider",
-        "imageUpload", "customUploadTrigger", "taskList"
-    ];
 
-    if (typeof setControlsEnabled === 'function') {
-        setControlsEnabled(!isRunning); // Enable controls if not running, disable if running
-    } else {
-        // Fallback: manually disable/enable known controls
-        console.warn("setControlsEnabled function not available, using manual fallback.");
+// --- UI State Update specific to task button ---
+// This could potentially be merged into setControlsEnabled, but separated for clarity
+export function updateTaskControlButtonState(isRunning) {
+    const startButton = document.getElementById("startButton");
+    if (!startButton) return;
+
+    startButton.disabled = isRunning;
+    startButton.textContent = isRunning ? "⏳ Running..." : "Start Task";
+
+    // We rely on setControlsEnabled to disable other inputs, but ensure start button state is correct.
+    // If setControlsEnabled is not available, this function provides a basic fallback.
+    if (typeof setControlsEnabled !== "function") {
+        console.warn("setControlsEnabled function not available, using manual fallback in updateTaskControlButtonState.");
+        const controlsToDisable = [
+            "baseDir", "prompt", "continueContext", "temperatureSlider",
+            "imageUpload", "customUploadTrigger", "taskList"
+        ];
         controlsToDisable.forEach(id => {
             const element = document.getElementById(id);
             if (element) {
                 if (id === "taskList") {
-                    element.style.pointerEvents = isRunning ? "none" : "auto";
-                    element.style.opacity = isRunning ? "0.7" : "1";
+                     element.style.pointerEvents = isRunning ? "none" : "auto";
+                     element.style.opacity = isRunning ? "0.7" : "1";
                 } else {
-                    element.disabled = isRunning;
+                     element.disabled = isRunning;
                 }
             }
         });
-        if (startButton) startButton.disabled = isRunning;
-    }
-
-    // Update button text/appearance specifically
-    if (startButton) {
-        startButton.textContent = isRunning ? "⏳ Running..." : "Start Task";
-        // Maybe add/remove a CSS class for styling
-        // startButton.classList.toggle('running', isRunning);
     }
 }
 
-
-// --- Module Exports ---
-// Ensure this runs only in environments that support modules (like Node.js tests, not browser)
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {
-    initializeSocket,
-    sendTaskToServer,
-    sendMessage,
-    updateTaskControlButtonState // Export helper if needed elsewhere
-  };
-}
+// No need for module.exports check

@@ -1,20 +1,28 @@
+// c:\dev\gemini-coder\src\client\js\uiHelpers.js
+import { addLogMessage } from "./logger.js"; // Import necessary functions
+
+// Module-level state for callbacks and context
 let currentFeedbackCallback = null;
 let currentQuestionCallback = null;
 let currentContextArray = [];
 const CONTEXT_STORAGE_KEY = "geminiCoder_activeTaskContext";
 
-function saveContextToLocalStorage() {
+// --- Local Storage ---
+export function saveContextToLocalStorage() {
     try {
         localStorage.setItem(CONTEXT_STORAGE_KEY, JSON.stringify(currentContextArray));
     } catch (e) {
         console.error("Error saving context to localStorage:", e);
+        // Use addLogMessage if available, otherwise console.warn
         if (typeof addLogMessage === "function") {
             addLogMessage("⚠️ Could not save context changes to local storage.", "warn", true);
+        } else {
+             console.warn("⚠️ Could not save context changes to local storage.");
         }
     }
 }
 
-function loadContextFromLocalStorage() {
+export function loadContextFromLocalStorage() {
     const contextList = document.getElementById("contextList");
     if (!contextList) {
         console.error("Element 'contextList' not found during context load.");
@@ -26,60 +34,62 @@ function loadContextFromLocalStorage() {
             const parsedContext = JSON.parse(storedContext);
             if (Array.isArray(parsedContext)) {
                 console.log(`Loading ${parsedContext.length} context items from localStorage.`);
-                updateContextDisplay(parsedContext, true); // Pass true to indicate loading
+                // Update display and internal array, mark as loading from storage
+                updateContextDisplay(parsedContext, true);
             } else {
                 console.warn("Invalid context data found in localStorage (not an array), clearing.");
-                clearContextAndStorage();
+                clearContextAndStorage(); // Reset if data is invalid
             }
         } else {
-            // No stored context, initialize display with placeholder
-            updateContextDisplay([], false); // Pass false or omit
-            console.log("No previous context found in localStorage.");
+             // No stored context found, initialize display as empty
+             updateContextDisplay([], false); // Explicitly empty, not loading from storage
+             console.log("No previous context found in localStorage.");
         }
     } catch (e) {
         console.error("Error loading context from localStorage:", e);
         if (typeof addLogMessage === "function") {
             addLogMessage("⚠️ Could not load context from local storage.", "warn", true);
         }
-        clearContextAndStorage(); // Clear on error
+        clearContextAndStorage(); // Reset on error
     }
 }
 
-function clearContextAndStorage() {
-    updateContextDisplay([], false); // Clear display immediately
-    currentContextArray = []; // Clear in-memory array
+export function clearContextAndStorage() {
+    updateContextDisplay([], false); // Update UI, mark as not loading from storage
+    // currentContextArray is cleared within updateContextDisplay when isLoadingFromStorage is false
     try {
         localStorage.removeItem(CONTEXT_STORAGE_KEY);
         console.log("Cleared context display, in-memory array, and localStorage.");
     } catch (e) {
         console.error("Error removing context from localStorage:", e);
-        if (typeof addLogMessage === "function") {
-            addLogMessage("⚠️ Failed to clear context from local storage.", "warn", true);
-        }
+         if (typeof addLogMessage === "function") {
+             addLogMessage("⚠️ Failed to clear context from local storage.", "warn", true);
+         }
     }
 }
 
 
-function preventDefaults(e) {
+// --- Drag and Drop Helpers ---
+export function preventDefaults(e) {
     e.preventDefault();
     e.stopPropagation();
 }
 
-function highlight(e) {
+export function highlight(e) {
     const promptInput = document.getElementById("prompt");
     if (promptInput) {
         promptInput.classList.add("drag-over");
     }
 }
 
-function unhighlight(e) {
+export function unhighlight(e) {
     const promptInput = document.getElementById("prompt");
     if (promptInput) {
         promptInput.classList.remove("drag-over");
     }
 }
 
-function handleDrop(e) {
+export function handleDrop(e) {
     const imageUploadInput = document.getElementById("imageUpload");
     if (!imageUploadInput) {
         console.error("Element 'imageUpload' not found for drop handling.");
@@ -90,38 +100,40 @@ function handleDrop(e) {
 
     if (files && files.length > 0) {
         try {
-            // Use DataTransfer constructor to create a new FileList
+            // Create a new DataTransfer object to ensure the FileList is mutable
             const dataTransfer = new DataTransfer();
             Array.from(files).forEach(file => dataTransfer.items.add(file));
             imageUploadInput.files = dataTransfer.files;
 
-            // Dispatch a 'change' event so event listeners are triggered
+            // Manually dispatch a \'change" event so event listeners are triggered
             const event = new Event("change", { bubbles: true });
             imageUploadInput.dispatchEvent(event);
-
         } catch (err) {
-            console.error("Error assigning dropped files to input:", err);
-            if (typeof addLogMessage === "function") {
-                addLogMessage("⚠️ Error processing dropped files. Please use the attach button.", "warn", true);
-            }
-            return; // Stop processing if error occurs
+             console.error("Error assigning dropped files to input:", err);
+             if (typeof addLogMessage === "function") {
+                 addLogMessage("⚠️ Error processing dropped files. Please use the attach button.", "warn", true);
+             }
+            return; // Stop if assigning files failed
         }
+
         if (typeof addLogMessage === "function") {
             addLogMessage(`📁 ${files.length} file(s) dropped onto prompt area.`, "info", true);
         }
     } else {
+        // Log if a drop happened but no files were detected
         if (typeof addLogMessage === "function") {
-            // ADDED isAction flag here
             addLogMessage("ℹ️ Drop event detected, but no files found.", "info", true);
         }
     }
 }
 
-function updateUploadTriggerText() {
+
+// --- UI Update Helpers ---
+export function updateUploadTriggerText() {
     const imageUploadInput = document.getElementById("imageUpload");
     const customUploadTrigger = document.getElementById("customUploadTrigger");
     if (!imageUploadInput || !customUploadTrigger) {
-        // console.warn("Upload trigger elements not found for update.");
+        // Don"t log error here, might be called before DOM ready sometimes
         return;
     }
     const numFiles = imageUploadInput.files ? imageUploadInput.files.length : 0;
@@ -134,105 +146,41 @@ function updateUploadTriggerText() {
     }
 }
 
-function updateContextDisplay(changes = [], isLoadingFromStorage = false) {
-    const contextList = document.getElementById("contextList");
-    if (!contextList) {
-        console.error("Element 'contextList' not found for context display.");
-        return;
-    }
-    contextList.innerHTML = ""; // Clear previous entries
-
-    if (!changes || changes.length === 0) {
-        // Display placeholder if no changes
-        const li = document.createElement("li");
-        li.textContent = "(Context will appear here as the task progresses)";
-        li.style.fontStyle = "italic";
-        li.style.opacity = "0.7";
-        li.classList.add("context-entry-info"); // Add a class for potential styling
-        contextList.appendChild(li);
-        if (!isLoadingFromStorage) {
-            // Only clear storage if not currently loading from it
-            currentContextArray = [];
-            saveContextToLocalStorage();
-        }
-    } else {
-        // If loading, update the in-memory array directly
-        if (isLoadingFromStorage) {
-            currentContextArray = [...changes];
-        } else {
-            // Otherwise, assume these are new changes to add/replace
-            currentContextArray = [...changes];
-            saveContextToLocalStorage(); // Save the updated context
-        }
-
-        // Render each entry
-        currentContextArray.forEach(entry => {
-            renderSingleContextEntry(entry.type, entry.text, contextList);
-        });
-    }
-
-    // Scroll to bottom after updating
-    requestAnimationFrame(() => {
-        contextList.scrollTop = contextList.scrollHeight;
-    });
-}
-
-function addContextLogEntry(type, text) {
-    const contextList = document.getElementById("contextList");
-    if (!contextList) {
-        console.error("Element 'contextList' not found for adding context entry.");
-        return;
-    }
-
-    // Remove placeholder if it exists
-    const placeholder = contextList.querySelector("li[style*='italic']");
-    if (placeholder && placeholder.textContent.includes("(Context will appear here")) {
-        contextList.removeChild(placeholder);
-    }
-
-    // Add new entry to array and render it
-    const newEntry = { type, text };
-    currentContextArray.push(newEntry);
-    renderSingleContextEntry(type, text, contextList);
-
-    saveContextToLocalStorage(); // Save after adding
-
-    // Scroll to bottom
-    requestAnimationFrame(() => {
-        contextList.scrollTop = contextList.scrollHeight;
-    });
-}
-
+// Renders a single context entry list item
 function renderSingleContextEntry(type, text, contextListElement) {
     const li = document.createElement("li");
-    li.classList.add("context-entry", `context-entry-${type}`);
+    li.classList.add("context-entry", `context-entry-${type}`); // Add type-specific class
 
     let prefix = "";
-    // Define prefixes based on type
+    // Assign prefixes based on type for visual cues
     switch (type) {
-        case "initial_prompt": prefix = "📝"; break;
-        case "resume_prompt": prefix = "▶️"; break;
-        case "question": prefix = "❓"; break;
-        case "answer": prefix = "🗣️"; break;
-        case "confirmation_request": prefix = "⚠️"; break;
-        case "confirmation_response": prefix = "👍"; break; // Could also use decision specific icon
-        case "createFile": case "updateFile": case "writeFileContent": prefix = "💾"; break;
-        case "deleteFile": prefix = "🗑️"; break;
-        case "createDirectory": prefix = "📁+"; break;
-        case "deleteDirectory": prefix = "📁-"; break;
-        case "moveItem": prefix = "🚚"; break;
-        case "readFileContent": prefix = "📄"; break;
-        case "listFiles": prefix = " Ls "; break; // Keep space for alignment if needed
-        case "searchFiles": case "searchFilesByRegex": prefix = "🔎"; break;
-        case "info": prefix = "ℹ️"; break;
-        case "task_finished": prefix = "✅"; break;
-        case "task_error": case "error": prefix = "❌"; break; // Consolidate error display
-        case "initial_state": prefix = "🔄"; break;
-        case "api_retry": prefix = "⏳"; break;
-        case "user_wait": prefix = "👤"; break;
-        case "disconnect": prefix = "🔌"; break;
-        case "warning": prefix = "⚠️"; break;
-        default: prefix = "⚙️"; // Generic gear for unknown types
+        case "initial_prompt": prefix = "📝"; break; // Task start/prompt
+        case "resume_prompt": prefix = "▶️"; break; // Task resume
+        case "question": prefix = "❓"; break;       // Question asked by AI
+        case "answer": prefix = "🗣️"; break;       // Answer provided by user
+        case "confirmation_request": prefix = "⚠️"; break; // Confirmation needed
+        case "confirmation_response": prefix = "👍"; break; // User confirmation action
+        case "createFile":
+        case "updateFile":
+        case "writeFileContent": prefix = "💾"; break; // File write/update
+        case "deleteFile": prefix = "🗑️"; break;       // File deletion
+        case "createDirectory": prefix = "📁+"; break; // Directory creation
+        case "deleteDirectory": prefix = "📁-"; break; // Directory deletion
+        case "moveItem": prefix = "🚚"; break;       // File/Dir move
+        case "readFileContent": prefix = "📄"; break; // File read
+        case "listFiles": prefix = " Ls "; break;     // Directory listing
+        case "searchFiles":
+        case "searchFilesByRegex": prefix = "🔎"; break; // Search operation
+        case "info": prefix = "ℹ️"; break;           // General info from AI/System
+        case "task_finished": prefix = "✅"; break;   // Task success
+        case "task_error":
+        case "error": prefix = "❌"; break;           // Task/System error
+        case "initial_state": prefix = "🔄"; break;  // Initial state load/clear
+        case "api_retry": prefix = "⏳"; break;      // API retry attempt
+        case "user_wait": prefix = "👤"; break;      // Waiting for user input
+        case "disconnect": prefix = "🔌"; break;    // Connection status
+        case "warning": prefix = "⚠️"; break;       // General warning
+        default: prefix = "⚙️"; // Default for unknown types
     }
 
     li.textContent = `${prefix} ${text}`; // Combine prefix and text
@@ -240,7 +188,86 @@ function renderSingleContextEntry(type, text, contextListElement) {
 }
 
 
-function setControlsEnabled(enabled) {
+export function updateContextDisplay(changes = [], isLoadingFromStorage = false) {
+    const contextList = document.getElementById("contextList");
+    if (!contextList) {
+        console.error("Element 'contextList' not found for context display.");
+        return;
+    }
+
+    contextList.innerHTML = ""; // Clear existing entries
+
+    if (!changes || changes.length === 0) {
+        // Display placeholder if context is empty
+        const li = document.createElement("li");
+        li.textContent = "(Context will appear here as the task progresses)";
+        li.style.fontStyle = "italic";
+        li.style.opacity = "0.7";
+        li.classList.add("context-entry-info"); // Generic info style
+        contextList.appendChild(li);
+         // If this update isn"t from storage load, reset the array and save
+        if (!isLoadingFromStorage) {
+            currentContextArray = [];
+            saveContextToLocalStorage();
+        }
+    } else {
+         // Update the internal array
+         // If loading from storage, replace the array entirely
+         // Otherwise, it means a full update came from the server, so also replace
+         currentContextArray = [...changes]; // Always replace with the new full list
+
+        // Render each entry
+        currentContextArray.forEach(entry => {
+             // Defensive check for entry structure
+             if (entry && entry.type && typeof entry.text !== "undefined") {
+                renderSingleContextEntry(entry.type, entry.text, contextList);
+             } else {
+                 console.warn("Skipping invalid context entry:", entry);
+             }
+        });
+
+        // Save the updated full context if this wasn"t just a load from storage
+        if (!isLoadingFromStorage) {
+            saveContextToLocalStorage();
+        }
+    }
+
+    // Scroll to bottom
+    requestAnimationFrame(() => {
+        contextList.scrollTop = contextList.scrollHeight;
+    });
+}
+
+// Adds a single new entry to the context log and saves
+export function addContextLogEntry(type, text) {
+    const contextList = document.getElementById("contextList");
+    if (!contextList) {
+        console.error("Element 'contextList' not found for adding context entry.");
+        return;
+    }
+
+    // Remove placeholder if it exists
+    const placeholder = contextList.querySelector(`li[style*="italic"]`);
+    if (placeholder && placeholder.textContent.includes("(Context will appear here")) {
+        contextList.removeChild(placeholder);
+    }
+
+    // Add to internal array and render
+    const newEntry = { type, text };
+    currentContextArray.push(newEntry);
+    renderSingleContextEntry(type, text, contextList);
+
+    // Save the updated context
+    saveContextToLocalStorage();
+
+    // Scroll to bottom
+    requestAnimationFrame(() => {
+        contextList.scrollTop = contextList.scrollHeight;
+    });
+}
+
+
+export function setControlsEnabled(enabled) {
     const controlsToToggle = [
         "baseDir", "prompt", "continueContext", "temperatureSlider",
         "startButton", "imageUpload", "customUploadTrigger", "taskList"
@@ -248,33 +275,33 @@ function setControlsEnabled(enabled) {
     const feedbackButtons = ["confirmYes", "confirmNo", "confirmYesAll"];
     const questionElements = ["questionInput", "submitAnswer", "questionYes", "questionNo"];
 
+    // Toggle main controls
     controlsToToggle.forEach(id => {
         const element = document.getElementById(id);
         if (element) {
             if (id === "taskList") {
-                // Disable interaction with task list visually
+                // Special handling for task list container (visual cue + interaction)
                 element.style.pointerEvents = enabled ? "auto" : "none";
                 element.style.opacity = enabled ? "1" : "0.7";
             } else {
-                element.disabled = !enabled;
+                 element.disabled = !enabled;
             }
         } else {
-            if (id !== "taskList") console.warn(`Element with ID '${id}' not found for enabling/disabling.`);
+             // Don"t log warnings for taskList as it might not be present in all layouts
+            if (id !== "taskList") console.warn(`Element with ID "${id}" not found for enabling/disabling.`);
         }
     });
 
-    // Also consider disabling modals based on 'enabled' state, though they manage their own buttons
+    // Enable/disable modal buttons only if the respective modal is visible
     const feedbackContainer = document.getElementById("feedbackContainer");
     const questionContainer = document.getElementById("questionContainer");
 
-    // Only disable feedback buttons if the feedback container is visible
     const feedbackVisible = feedbackContainer && !feedbackContainer.classList.contains("hidden");
     feedbackButtons.forEach(id => {
         const button = document.getElementById(id);
         if (button) button.disabled = !enabled || !feedbackVisible;
     });
 
-    // Only disable question inputs if the question container is visible
     const questionVisible = questionContainer && !questionContainer.classList.contains("hidden");
     questionElements.forEach(id => {
         const element = document.getElementById(id);
@@ -285,11 +312,14 @@ function setControlsEnabled(enabled) {
     const startButton = document.getElementById("startButton");
     if (startButton) {
         startButton.textContent = enabled ? "Start Task" : "⏳ Running...";
+        // Ensure start button itself is disabled correctly (redundant with above loop but safe)
+        startButton.disabled = !enabled;
     }
 }
 
 
-function showFeedback(message, callback) {
+// --- Modal Dialog Helpers ---
+export function showFeedback(message, callback) {
     const feedbackMessage = document.getElementById("feedbackMessage");
     const feedbackContainer = document.getElementById("feedbackContainer");
     const confirmYesButton = document.getElementById("confirmYes");
@@ -298,7 +328,7 @@ function showFeedback(message, callback) {
 
     if (!feedbackMessage || !feedbackContainer || !confirmYesButton || !confirmNoButton || !confirmYesAllButton) {
         console.error("Feedback dialog elements not found (feedbackMessage, feedbackContainer, confirmYes, confirmNo, confirmYesAll).");
-        if(callback) callback("error"); // Signal error if callback provided
+        if(callback) callback("error"); // Signal error back if possible
         return;
     }
 
@@ -306,25 +336,24 @@ function showFeedback(message, callback) {
     feedbackContainer.classList.remove("hidden"); // Make visible
     currentFeedbackCallback = callback; // Store the callback
 
-    hideQuestionInput(); // Hide question modal if it's open
-    setControlsEnabled(false); // Disable main controls, but enable modal buttons
+    hideQuestionInput(); // Hide the other modal if open
+    setControlsEnabled(false); // Disable background controls
 
-    // Explicitly enable modal buttons
+    // Ensure buttons are enabled (setControlsEnabled might have disabled them if modal wasn"t visible)
     confirmYesButton.disabled = false;
     confirmNoButton.disabled = false;
     confirmYesAllButton.disabled = false;
-
-    confirmYesButton.focus(); // Focus the primary action
+    confirmYesButton.focus(); // Focus for accessibility
 }
 
-function hideFeedback() {
+export function hideFeedback() {
     const feedbackContainer = document.getElementById("feedbackContainer");
     if (feedbackContainer) {
         feedbackContainer.classList.add("hidden");
     }
     currentFeedbackCallback = null; // Clear callback
 
-    // Disable buttons when hiding
+    // Disable buttons when hidden
     const confirmYesButton = document.getElementById("confirmYes");
     const confirmNoButton = document.getElementById("confirmNo");
     const confirmYesAllButton = document.getElementById("confirmYesAll");
@@ -332,11 +361,14 @@ function hideFeedback() {
     if (confirmNoButton) confirmNoButton.disabled = true;
     if (confirmYesAllButton) confirmYesAllButton.disabled = true;
 
-    // Re-enable controls only if task isn't running (handled elsewhere)
+    // Re-enable general controls *only if* the question modal is also hidden
+    const questionContainer = document.getElementById("questionContainer");
+    if (!questionContainer || questionContainer.classList.contains("hidden")) {
+         // setControlsEnabled(true); // This might be called too early by socket events, let the calling context decide when to re-enable controls.
+    }
 }
 
-
-function showQuestionInput(question, callback) {
+export function showQuestionInput(question, callback) {
     const questionText = document.getElementById("questionText");
     const questionInput = document.getElementById("questionInput");
     const questionContainer = document.getElementById("questionContainer");
@@ -346,36 +378,34 @@ function showQuestionInput(question, callback) {
 
     if (!questionText || !questionInput || !questionContainer || !submitAnswerButton || !questionYesButton || !questionNoButton) {
         console.error("Question dialog elements not found (questionText, questionInput, questionContainer, submitAnswer, questionYes, questionNo).");
-        if(callback) callback({ type: "error", value: "UI elements missing" }); // Signal error
+        if(callback) callback({ type: "error", value: "UI elements missing" });
         return;
     }
 
     questionText.textContent = question;
-    questionInput.value = ""; // Clear previous answer
-    questionContainer.classList.remove("hidden"); // Make visible
+    questionInput.value = ""; // Clear previous input
+    questionContainer.classList.remove("hidden");
     currentQuestionCallback = callback; // Store callback
 
-    hideFeedback(); // Hide feedback modal if it's open
-    setControlsEnabled(false); // Disable main controls, enable modal inputs
+    hideFeedback(); // Hide the other modal
+    setControlsEnabled(false); // Disable background controls
 
-    // Explicitly enable modal inputs/buttons
+    // Ensure inputs/buttons are enabled
     questionInput.disabled = false;
     submitAnswerButton.disabled = false;
     questionYesButton.disabled = false;
     questionNoButton.disabled = false;
-
-    questionInput.focus(); // Focus the text input
+    questionInput.focus(); // Focus on text input
 }
 
-
-function hideQuestionInput() {
+export function hideQuestionInput() {
     const questionContainer = document.getElementById("questionContainer");
     if (questionContainer) {
         questionContainer.classList.add("hidden");
     }
     currentQuestionCallback = null; // Clear callback
 
-    // Disable inputs/buttons when hiding
+    // Disable inputs/buttons when hidden
     const questionInput = document.getElementById("questionInput");
     const submitAnswerButton = document.getElementById("submitAnswer");
     const questionYesButton = document.getElementById("questionYes");
@@ -385,54 +415,92 @@ function hideQuestionInput() {
     if (questionYesButton) questionYesButton.disabled = true;
     if (questionNoButton) questionNoButton.disabled = true;
 
-    // Re-enable controls only if task isn't running (handled elsewhere)
+     // Re-enable general controls *only if* the feedback modal is also hidden
+     const feedbackContainer = document.getElementById("feedbackContainer");
+     if (!feedbackContainer || feedbackContainer.classList.contains("hidden")) {
+         // setControlsEnabled(true); // Let the calling context decide when to re-enable controls.
+     }
+}
+
+// Placeholder for image display logic used by socket handler
+export function displayImageResult(imageUrl, promptText) {
+    // TODO: Implement the actual logic to display the image
+    // This might involve creating an <img> element, setting its src,
+    // and appending it somewhere in the DOM, possibly the log or a dedicated area.
+    console.log(`UI Helper: Would display image ${imageUrl} for prompt "${promptText}"`);
+    if (typeof addLogMessage === "function") {
+        addLogMessage(`🖼️ Displaying image (placeholder): ${imageUrl}`, "info");
+        // Example: Add image to log output
+        const logOutput = document.getElementById("logOutput");
+        if (logOutput) {
+            const imgEntry = document.createElement("div");
+            imgEntry.className = "log-entry log-image";
+            const img = document.createElement("img");
+            img.src = imageUrl;
+            img.alt = promptText;
+            img.style.maxWidth = "90%"; // Basic styling
+            img.style.maxHeight = "300px";
+            img.style.marginTop = "5px";
+            img.style.border = "1px solid var(--border-color)";
+            img.style.borderRadius = "var(--border-radius)";
+             imgEntry.appendChild(img);
+             const caption = document.createElement("p");
+             caption.textContent = `Image for: "${promptText}"`;
+             caption.style.fontSize = "0.85em";
+             caption.style.textAlign = "center";
+             caption.style.color = "var(--text-secondary)";
+             imgEntry.appendChild(caption);
+
+             logOutput.appendChild(imgEntry);
+             const logContainer = document.getElementById("logContainer");
+             if (logContainer) {
+                 requestAnimationFrame(() => { logContainer.scrollTop = logContainer.scrollHeight; });
+             }
+        }
+    }
 }
 
 
-// Event listeners for Modals setup in DOMContentLoaded
-document.addEventListener("DOMContentLoaded", () => {
+// --- Initialize Modal Event Listeners ---
+// This function should be called once the DOM is ready
+export function initializeModalListeners() {
     const confirmYesButton = document.getElementById("confirmYes");
     const confirmNoButton = document.getElementById("confirmNo");
     const confirmYesAllButton = document.getElementById("confirmYesAll");
-
     const submitAnswerButton = document.getElementById("submitAnswer");
     const questionInput = document.getElementById("questionInput");
     const questionYesButton = document.getElementById("questionYes");
     const questionNoButton = document.getElementById("questionNo");
 
-    // Feedback Modal Listeners
+    // Feedback Button Listeners
     if (confirmYesButton) {
         confirmYesButton.addEventListener("click", () => {
-            if (currentFeedbackCallback) {
-                currentFeedbackCallback("yes");
-                // Optionally hideFeedback() here or let the caller handle it
-            }
+            if (currentFeedbackCallback) { currentFeedbackCallback("yes"); }
+            // hideFeedback(); // Callback should handle hiding in socketHandlerClient
         });
     } else { console.warn("Button 'confirmYes' not found."); }
 
     if (confirmNoButton) {
         confirmNoButton.addEventListener("click", () => {
-            if (currentFeedbackCallback) {
-                currentFeedbackCallback("no");
-            }
+            if (currentFeedbackCallback) { currentFeedbackCallback("no"); }
+            // hideFeedback();
         });
     } else { console.warn("Button 'confirmNo' not found."); }
 
     if (confirmYesAllButton) {
         confirmYesAllButton.addEventListener("click", () => {
-            if (currentFeedbackCallback) {
-                currentFeedbackCallback("yes/all");
-            }
+            if (currentFeedbackCallback) { currentFeedbackCallback("yes/all"); }
+            // hideFeedback();
         });
     } else { console.warn("Button 'confirmYesAll' not found."); }
 
-
-    // Question Modal Listeners
+    // Question Button/Input Listeners
     const submitQuestionText = () => {
         if (currentQuestionCallback && questionInput) {
             const answer = questionInput.value.trim();
+            // Send answer back as structured object
             currentQuestionCallback({ type: "text", value: answer });
-            // Optionally hideQuestionInput() here or let the caller handle it
+            // hideQuestionInput(); // Callback should handle hiding
         }
     };
 
@@ -441,10 +509,10 @@ document.addEventListener("DOMContentLoaded", () => {
     } else { console.warn("Button 'submitAnswer' not found."); }
 
     if (questionInput) {
+        // Submit on Enter key press (but not Shift+Enter)
         questionInput.addEventListener("keypress", (event) => {
-            // Submit on Enter unless Shift is pressed (for multi-line)
             if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault(); // Prevent default form submission/newline
+                event.preventDefault(); // Prevent default newline behavior
                 submitQuestionText();
             }
         });
@@ -453,7 +521,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (questionYesButton) {
         questionYesButton.addEventListener("click", () => {
             if (currentQuestionCallback) {
-                currentQuestionCallback({ type: "button", value: "yes" });
+                 currentQuestionCallback({ type: "button", value: "yes" });
+                 // hideQuestionInput();
             }
         });
     } else { console.warn("Button 'questionYes' not found."); }
@@ -461,36 +530,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (questionNoButton) {
         questionNoButton.addEventListener("click", () => {
             if (currentQuestionCallback) {
-                currentQuestionCallback({ type: "button", value: "no" });
+                 currentQuestionCallback({ type: "button", value: "no" });
+                 // hideQuestionInput();
             }
         });
     } else { console.warn("Button 'questionNo' not found."); }
 
     console.log("UI Helper modal event listeners initialized.");
-});
+}
 
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-      saveContextToLocalStorage,
-      loadContextFromLocalStorage,
-      clearContextAndStorage,
-      preventDefaults,
-      highlight,
-      unhighlight,
-      handleDrop,
-      updateUploadTriggerText,
-      updateContextDisplay,
-      addContextLogEntry,
-      renderSingleContextEntry,
-      setControlsEnabled,
-      showFeedback,
-      hideFeedback,
-      showQuestionInput,
-      hideQuestionInput,
-      // Also export internal refs if tests might need them, though unlikely
-      // currentFeedbackCallback,
-      // currentQuestionCallback,
-      // currentContextArray
-    };
-  }
+// No need for module.exports check

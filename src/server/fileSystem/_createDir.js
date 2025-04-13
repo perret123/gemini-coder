@@ -1,47 +1,41 @@
-const fs = require("node:fs/promises");
-// Adjust the path to utils
-const { emitLog } = require("../utils");
+// c:\dev\gemini-coder\src\server\fileSystem\_createDir.js
+import fs from "node:fs/promises";
+import { emitLog } from "../utils.js"; // Added .js extension
 
-async function _createDir(fullPath, context, dirPathLog) {
-     const { socket, changesLog } = context;
+export async function _createDir(fullPath, context, dirPathLog) {
+    const { socket, changesLog } = context;
     try {
         emitLog(socket, ` fs: Creating directory (recursive): ${dirPathLog}`, "debug");
-        // Check if it already exists
-         try {
+        try {
             const stats = await fs.stat(fullPath);
             if (stats.isDirectory()) {
                 emitLog(socket, ` fs: ℹ️ Directory already exists: ${dirPathLog}. No action needed.`, "info");
-                // Don\"t log change if it already existed
-                return { success: true, message: `Directory \'${dirPathLog}\' already exists.` };
+                return { success: true, message: `Directory '${dirPathLog}' already exists.` };
             } else {
-                // Path exists but is not a directory - this is an error
-                const msg = `Path \'${dirPathLog}\' already exists but is not a directory. Cannot create directory.`;
+                // Path exists but is not a directory (e.g., a file)
+                const msg = `Path '${dirPathLog}' already exists but is not a directory. Cannot create directory.`;
                 emitLog(socket, ` fs: ❌ ${msg}`, "error");
-                 return { error: msg };
+                return { error: msg };
             }
         } catch (statError) {
-            // ENOENT means it doesn\"t exist, which is expected. Throw other errors.
+            // Only proceed if the error is ENOENT (path doesn't exist)
             if (statError.code !== "ENOENT") {
-                throw statError;
+                throw statError; // Re-throw other errors (like permission issues)
             }
-            // Path doesn\"t exist, proceed to create
         }
 
+        // If we got here, the path either doesn't exist or we are sure it's safe to create
         await fs.mkdir(fullPath, { recursive: true });
 
+        // Add to changesLog *only if* the operation was successful and didn't just confirm existence
         if (changesLog) {
-            changesLog.push({
-                type: "createDirectory",
-                directoryPath: dirPathLog
-            });
-             emitLog(socket, ` fs: [+] Logged change: createDirectory - ${dirPathLog}`, "debug");
+            changesLog.push({ type: "createDirectory", directoryPath: dirPathLog });
+            emitLog(socket, ` fs: [+] Logged change: createDirectory - ${dirPathLog}`, "debug");
         }
+        return { success: true }; // Return success even if it already existed
 
-        return { success: true };
     } catch (error) {
         emitLog(socket, ` fs: ❌ Error creating directory ${dirPathLog}: ${error.message} (Code: ${error.code})`, "error");
-        return { error: `Failed to create directory \'${dirPathLog}\': ${error.message}` };
+        return { error: `Failed to create directory '${dirPathLog}': ${error.message}` };
     }
 }
-
-module.exports = { _createDir }; // Export the function

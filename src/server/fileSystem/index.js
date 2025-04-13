@@ -1,11 +1,12 @@
-// This file re-exports the key functions from the fileSystem module
+// c:\dev\gemini-coder\src\server\fileSystem\index.js
 
-const { loadGitignore } = require("./loadGitignore");
-const { createFileSystemHandlers } = require("./createFileSystemHandlers");
-const { performUndoOperation } = require("./performUndoOperation");
+// Import named exports from the modules
+import { loadGitignore } from "./loadGitignore.js";
+import { createFileSystemHandlers } from "./createFileSystemHandlers.js";
+import { performUndoOperation } from "./performUndoOperation.js";
 
-// Export the functions intended for public use within the server
-module.exports = {
+// Export them as named exports
+export {
     loadGitignore,
     createFileSystemHandlers,
     performUndoOperation

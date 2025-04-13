@@ -1,75 +1,70 @@
-function setupFileUploadAndDragDrop() {
-    const imageUploadInput = document.getElementById('imageUpload');
-    const customUploadTrigger = document.getElementById('customUploadTrigger');
-    const promptInput = document.getElementById('prompt');
+// c:\dev\gemini-coder\src\client\js\fileUploadHandler.js
+import {
+    preventDefaults,
+    highlight,
+    unhighlight,
+    handleDrop,
+    updateUploadTriggerText
+} from "./uiHelpers.js"; // Import specific UI functions
+import { addLogMessage } from "./logger.js"; // Import logger
 
+export function setupFileUploadAndDragDrop() {
+    // Get necessary DOM elements
+    const imageUploadInput = document.getElementById("imageUpload");
+    const customUploadTrigger = document.getElementById("customUploadTrigger");
+    const promptInput = document.getElementById("prompt"); // Drop target
+
+    // Basic check if elements exist
     if (!imageUploadInput || !customUploadTrigger || !promptInput) {
         console.error("Required elements for file upload/drag-drop not found (imageUpload, customUploadTrigger, prompt).");
         return;
     }
 
-    customUploadTrigger.addEventListener('click', () => {
+    // --- File Input Setup ---
+    // Trigger hidden file input when custom button is clicked
+    customUploadTrigger.addEventListener("click", () => {
         imageUploadInput.click();
     });
 
-    // --- Drag and Drop Event Listeners ---
-    if (typeof preventDefaults === 'function') {
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            promptInput.addEventListener(eventName, preventDefaults, false);
-            document.body.addEventListener(eventName, preventDefaults, false); // Prevent default for body too
-        });
-    } else {
-        console.warn("Function 'preventDefaults' not found. Drag/drop might not work correctly.");
-    }
-
-    if (typeof highlight === 'function') {
-        ['dragenter', 'dragover'].forEach(eventName => {
-            promptInput.addEventListener(eventName, highlight, false);
-        });
-    } else {
-        console.warn("Function 'highlight' not found. Drop zone highlighting disabled.");
-    }
-
-    if (typeof unhighlight === 'function') {
-        ['dragleave', 'drop'].forEach(eventName => {
-            promptInput.addEventListener(eventName, unhighlight, false);
-        });
-    } else {
-        console.warn("Function 'unhighlight' not found. Drop zone highlighting might persist.");
-    }
-
-    if (typeof handleDrop === 'function') {
-        promptInput.addEventListener('drop', handleDrop, false);
-    } else {
-        console.error("Function 'handleDrop' not found. File dropping will not work.");
-    }
-    // --- End Drag and Drop ---
-
-    imageUploadInput.addEventListener('change', () => {
-        if (typeof updateUploadTriggerText === 'function') {
-            updateUploadTriggerText();
-        }
+    // Update button text when files are selected via dialog
+    imageUploadInput.addEventListener("change", () => {
+        updateUploadTriggerText(); // Update button appearance
         const fileCount = imageUploadInput.files.length;
         if (fileCount > 0) {
-            if (typeof addLogMessage === 'function') {
-                // ADDED isAction flag here
-                addLogMessage(`📎 ${fileCount} file(s) selected via file dialog.`, 'info', true);
-            }
+            addLogMessage(`📎 ${fileCount} file(s) selected via file dialog.`, "info", true);
         }
     });
 
-    // Initial update in case files are pre-selected (e.g., page refresh with cache)
-    if (typeof updateUploadTriggerText === 'function') {
-        updateUploadTriggerText();
-    } else {
-        console.warn("Function 'updateUploadTriggerText' not found. Upload trigger UI may not update.");
-    }
+
+    // --- Drag and Drop Setup (on the prompt area) ---
+    const dragDropEvents = ["dragenter", "dragover", "dragleave", "drop"];
+
+    // Prevent default browser behavior for drag/drop events
+    dragDropEvents.forEach(eventName => {
+        promptInput.addEventListener(eventName, preventDefaults, false);
+        // Optional: Prevent drops anywhere else on the body?
+        // document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    // Highlight drop zone on drag enter/over
+    ["dragenter", "dragover"].forEach(eventName => {
+        promptInput.addEventListener(eventName, highlight, false);
+    });
+
+    // Unhighlight drop zone on drag leave/drop
+    ["dragleave", "drop"].forEach(eventName => {
+        promptInput.addEventListener(eventName, unhighlight, false);
+    });
+
+    // Handle file drop
+    promptInput.addEventListener("drop", handleDrop, false);
+
+
+    // --- Initial State ---
+    // Set initial button text based on whether files are pre-selected (unlikely but possible)
+    updateUploadTriggerText();
 
     console.log("File upload and drag/drop handlers setup.");
 }
 
-// ... (existing code) ...
-
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { setupFileUploadAndDragDrop };
-  }
+// No need for module.exports check

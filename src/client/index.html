@@ -46,7 +46,7 @@
                 <input type="file" id="imageUpload" accept="image/*" multiple class="visually-hidden">
             </div>
 
-            <!-- Removed the visually-hidden group for imageUpload as it's now paired with the trigger -->
+            <!-- Removed the visually-hidden group for imageUpload as it"s now paired with the trigger -->
 
             <div class="form-group context-temp-group">
                 <label for="continueContext">
@@ -110,19 +110,22 @@
 
     </div> <!-- End main-content -->
 
-    <!-- Load Socket.IO client library -->
+    <!-- Load Socket.IO client from server -->
     <script src="/socket.io/socket.io.js"></script>
 
-    <!-- Load application scripts -->
-    <!-- Order might matter if scripts depend on each other globally -->
-    <script src="js/logger.js"></script>
-    <script src="js/uiHelpers.js"></script>
-    <script src="js/fileUploadHandler.js"></script>
-    <script src="js/themeManager.js"></script>
-    <script src="js/taskManager.js"></script>
-    <script src="js/socketHandlerClient.js"></script>
-    <!-- Main client entry point - Load last or use defer -->
-    <script src="client.js" defer></script>
+    <!-- ADD THIS: Load the Webpack bundle -->
+    <!-- The path needs to match the output path in webpack.config.js relative to the served HTML -->
+    <!-- Since server.js serves CLIENT_PATH, and bundle is in dist/client/js, the path from root is /dist/client/js/bundle.js -->
+    <!-- However, if express serves CLIENT_PATH (\"src/client\"), it won"t find \"dist\". -->
+    <!-- Easiest Fix: Output bundle directly into src/client/dist -->
+
+    <!-- ****** CHANGE WEBPACK OUTPUT PATH ****** -->
+    <!-- In webpack.config.js, change output.path to: -->
+    <!-- path: path.resolve(__dirname, \"src/client/dist/js\"), -->
+    <!-- *************************************** -->
+
+    <!-- Now load the bundle relative to the served src/client/ -->
+    <script src="dist/js/bundle.js" defer></script>
 
 </body>
 </html>
