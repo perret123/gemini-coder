@@ -4,3 +4,4 @@ node_modules/
 public/
 uploads/
 src/client/dist
+vector_stores/
