@@ -6,7 +6,8 @@
   --text-primary-dark: #abb2bf;
   --text-secondary-dark: #8d93a0;
   --border-color-dark: #353b45;
-  --interactive-color-dark: #6f42c1; /* PURPLE - Updated from #61afef */
+  --interactive-color-dark: #6f42c1;
+  /* PURPLE - Updated from #61afef */
   --button-text-dark: #ffffff;
   --error-color-dark: #e06c75;
   --success-color-dark: #98c379;
@@ -21,7 +22,8 @@
   --text-primary-light: #212529;
   --text-secondary-light: #6c757d;
   --border-color-light: #dee2e6;
-  --interactive-color-light: #6f42c1; /* PURPLE - Updated from #007bff */
+  --interactive-color-light: #6f42c1;
+  /* PURPLE - Updated from #007bff */
   --button-text-light: #ffffff;
   --error-color-light: #dc3545;
   --success-color-light: #28a745;
@@ -32,7 +34,7 @@
 
   /* Original Layout & Font Variables */
   --sidebar-width: 280px;
-  --context-width: 280px;
+  --context-width: 400px;
   --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   --font-size: 15px;
   --line-height: 1.6;
@@ -112,12 +114,14 @@ body {
   color: var(--text-primary);
   margin: 0;
   padding: 0;
-  display: flex; /* Original layout used flex */
+  display: flex;
+  /* Original layout used flex */
   min-height: 100vh;
   transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
 }
 
-h1, h2 {
+h1,
+h2 {
   color: var(--text-primary);
   margin-top: 0;
   margin-bottom: 0.75em;
@@ -136,16 +140,22 @@ button {
   margin-right: 8px;
   vertical-align: middle;
 }
-button:last-child { margin-right: 0; }
+
+button:last-child {
+  margin-right: 0;
+}
+
 button:hover:not(:disabled) {
   background-color: color-mix(in srgb, var(--interactive-color) 85%, black);
   transform: translateY(-1px);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
 }
+
 button:active:not(:disabled) {
   transform: translateY(0px);
   box-shadow: none;
 }
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -166,10 +176,12 @@ textarea {
   font-size: 0.95em;
   transition: border-color var(--transition-speed) ease, background-color var(--transition-speed) ease;
 }
+
 textarea {
   min-height: 100px;
   resize: vertical;
 }
+
 input[type="text"]:focus,
 textarea:focus {
   outline: none;
@@ -210,12 +222,15 @@ pre {
   background-color: transparent;
   border: none;
   font-family: Consolas, "Courier New", monospace;
-  font-size: 0.9em; /* Base font size for logs */
+  font-size: 0.9em;
+  /* Base font size for logs */
 }
 
 .app-container {
-  display: flex; /* This matches the body's flex */
-  width: 100%; /* Ensure it takes full width */
+  display: flex;
+  /* This matches the body's flex */
+  width: 100%;
+  /* Ensure it takes full width */
 }
 
 #taskListContainer {
@@ -228,7 +243,8 @@ pre {
   flex-direction: column;
   overflow-y: auto;
   transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
-  height: 100vh; /* Take full height */
+  height: 100vh;
+  /* Take full height */
 }
 
 .main-content {
@@ -236,8 +252,10 @@ pre {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  max-height: 100vh; /* Prevent main content from exceeding viewport height */
-  overflow-y: hidden; /* Hide main scrollbar, panels will scroll */
+  max-height: 100vh;
+  /* Prevent main content from exceeding viewport height */
+  overflow-y: hidden;
+  /* Hide main scrollbar, panels will scroll */
 }
 
 .logo-container {
@@ -248,11 +266,13 @@ pre {
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
+
 #appLogo {
   height: 32px;
   width: auto;
   margin-right: 12px;
 }
+
 .logo-container h1 {
   flex-grow: 1;
   margin: 0;
@@ -261,9 +281,12 @@ pre {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  border-bottom: none; /* Override default h1 styles if any */
+  border-bottom: none;
+  /* Override default h1 styles if any */
 }
-#themeSwitcher { /* Matches the ID in index.html */
+
+#themeSwitcher {
+  /* Matches the ID in index.html */
   background: none;
   border: none;
   font-size: 1.6em;
@@ -274,12 +297,14 @@ pre {
   margin-left: 10px;
   transition: color var(--transition-speed) ease;
 }
+
 #themeSwitcher:hover {
   color: var(--text-primary);
 }
 
 /* Task List Styling */
-#taskListContainer h2 { /* If you add a heading later */
+#taskListContainer h2 {
+  /* If you add a heading later */
   margin-top: 0;
   margin-bottom: 10px;
   padding-bottom: 8px;
@@ -288,6 +313,7 @@ pre {
   color: var(--text-primary);
   flex-shrink: 0;
 }
+
 #taskList {
   list-style: none;
   padding: 0;
@@ -298,6 +324,7 @@ pre {
   margin-right: -15px;
   padding-right: 15px;
 }
+
 .task-item {
   padding: 10px 12px;
   margin-bottom: 6px;
@@ -311,24 +338,36 @@ pre {
   word-break: break-word;
   font-size: 0.95em;
   color: var(--text-secondary);
-  position: relative; /* For potential absolute positioning inside */
+  position: relative;
+  /* For potential absolute positioning inside */
 }
+
 .task-item:not(.new-task-item):hover {
   background-color: var(--task-item-hover-bg);
   color: var(--text-primary);
 }
+
 .task-item.active {
   background-color: var(--task-item-active-bg);
-  color: var(--task-item-active-text) !important; /* Ensure override */
+  color: var(--task-item-active-text) !important;
+  /* Ensure override */
   font-weight: 600;
   border-color: color-mix(in srgb, var(--task-item-active-bg) 70%, black);
 }
-.task-item.active .task-title { color: var(--task-item-active-text); }
-.task-item.active .delete-task-btn { color: color-mix(in srgb, var(--task-item-active-text) 70%, var(--error-color) 30%); }
+
+.task-item.active .task-title {
+  color: var(--task-item-active-text);
+}
+
+.task-item.active .delete-task-btn {
+  color: color-mix(in srgb, var(--task-item-active-text) 70%, var(--error-color) 30%);
+}
+
 .task-item.active .delete-task-btn:hover {
   color: var(--error-color);
   background-color: color-mix(in srgb, var(--task-item-active-text) 20%, transparent);
 }
+
 .task-item .task-title {
   flex-grow: 1;
   margin-right: 8px;
@@ -338,10 +377,12 @@ pre {
   color: var(--text-primary);
   transition: color 0.15s ease;
 }
+
 .delete-task-btn {
   background: none;
   border: none;
-  color: transparent; /* Hide by default */
+  color: transparent;
+  /* Hide by default */
   cursor: pointer;
   padding: 2px 5px;
   font-size: 1.1em;
@@ -350,29 +391,38 @@ pre {
   flex-shrink: 0;
   transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
   opacity: 0.7;
-  margin: 0; /* Reset button margin */
+  margin: 0;
+  /* Reset button margin */
 }
-.task-item:hover .delete-task-btn { /* Show on hover */
+
+.task-item:hover .delete-task-btn {
+  /* Show on hover */
   color: var(--delete-btn-color);
   opacity: 1;
 }
+
 .delete-task-btn:hover {
   background-color: var(--delete-btn-hover-bg);
   color: color-mix(in srgb, var(--delete-btn-color) 80%, black);
-  transform: none; /* Override base button hover */
-  box-shadow: none; /* Override base button hover */
+  transform: none;
+  /* Override base button hover */
+  box-shadow: none;
+  /* Override base button hover */
 }
+
 .new-task-item {
   font-style: italic;
   color: var(--text-secondary);
   border: 1px dashed var(--border-color);
 }
+
 .new-task-item:hover {
   background-color: var(--task-item-hover-bg);
   border-color: var(--interactive-color);
   border-style: solid;
   color: var(--text-primary);
 }
+
 .new-task-item.active {
   background-color: var(--task-item-active-bg);
   color: var(--task-item-active-text);
@@ -388,14 +438,64 @@ pre {
   border-radius: var(--border-radius);
   border: 1px solid var(--border-color);
   margin-bottom: 20px;
-  flex-shrink: 0; /* Prevent controls from shrinking */
+  flex-shrink: 0;
+  /* Prevent controls from shrinking */
   transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
 }
-.form-group { margin-bottom: 18px; }
-.form-group:last-child { margin-bottom: 0; }
 
-.prompt-container { position: relative; }
-#customUploadTrigger { /* Style the file upload trigger button */
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+/* Add to src/client/style.css */
+.base-dir-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.base-dir-controls input[type="text"] {
+  flex-grow: 1;
+}
+
+#indexCodebaseButton {
+  padding: 8px 12px;
+  /* Slightly smaller */
+  font-size: 0.9em;
+  flex-shrink: 0;
+  background-color: var(--text-secondary);
+  /* More subtle color */
+}
+
+#indexCodebaseButton:hover:not(:disabled) {
+  background-color: var(--interactive-color);
+}
+
+#lastIndexedStatus {
+  font-size: 0.8em;
+  color: var(--text-secondary);
+}
+
+#indexingProgressBarContainer {
+  background-color: var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 2px;
+}
+
+#indexingProgressBarContainer.hidden {
+  display: none;
+}
+
+.prompt-container {
+  position: relative;
+}
+
+#customUploadTrigger {
+  /* Style the file upload trigger button */
   position: absolute;
   bottom: 10px;
   right: 10px;
@@ -407,16 +507,28 @@ pre {
   padding: 5px;
   line-height: 1;
   transition: color var(--transition-speed);
-  z-index: 1; /* Ensure it's above the textarea */
+  z-index: 1;
+  /* Ensure it's above the textarea */
 }
-#customUploadTrigger:hover { color: var(--interactive-color); }
-#customUploadTrigger:disabled { opacity: 0.4; cursor: not-allowed; }
-.visually-hidden { /* Hide the actual file input */
+
+#customUploadTrigger:hover {
+  color: var(--interactive-color);
+}
+
+#customUploadTrigger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.visually-hidden {
+  /* Hide the actual file input */
   position: absolute !important;
-  height: 1px; width: 1px;
+  height: 1px;
+  width: 1px;
   overflow: hidden;
   clip: rect(1px, 1px, 1px, 1px);
-  white-space: nowrap; /* Added */
+  white-space: nowrap;
+  /* Added */
 }
 
 .context-temp-group {
@@ -424,9 +536,12 @@ pre {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 15px 25px; /* Row and column gap */
+  gap: 15px 25px;
+  /* Row and column gap */
 }
-.context-temp-group label { /* Style checkbox label */
+
+.context-temp-group label {
+  /* Style checkbox label */
   margin-bottom: 0;
   display: inline-flex;
   align-items: center;
@@ -434,30 +549,39 @@ pre {
   font-weight: normal;
   color: var(--text-primary);
 }
+
 .temperature-slider-container {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.temperature-slider-container label { /* Style temp label */
+
+.temperature-slider-container label {
+  /* Style temp label */
   margin-bottom: 0;
   font-size: 0.9em;
   font-weight: normal;
   color: var(--text-primary);
 }
+
 #temperatureSlider {
   width: 120px;
   cursor: pointer;
-  height: 5px; /* Make slider thinner */
-  accent-color: var(--interactive-color); /* Color the slider track/thumb */
+  height: 5px;
+  /* Make slider thinner */
+  accent-color: var(--interactive-color);
+  /* Color the slider track/thumb */
 }
+
 #temperatureValue {
   font-weight: bold;
-  min-width: 30px; /* Ensure space for value */
+  min-width: 30px;
+  /* Ensure space for value */
   text-align: right;
   font-size: 0.9em;
   color: var(--text-primary);
 }
+
 #startButton {
   padding: 12px 25px;
   font-size: 1.05em;
@@ -468,24 +592,32 @@ pre {
 .logs-and-context-wrapper {
   display: flex;
   gap: 20px;
-  flex-grow: 1; /* Allow this wrapper to fill remaining space */
-  min-height: 200px; /* Ensure it has some minimum height */
-  overflow: hidden; /* Prevent wrapper scrollbars, children will scroll */
+  flex-grow: 1;
+  /* Allow this wrapper to fill remaining space */
+  min-height: 200px;
+  /* Ensure it has some minimum height */
+  overflow: hidden;
+  /* Prevent wrapper scrollbars, children will scroll */
 }
 
 /* Log Container */
 #logContainer {
-  flex-grow: 1; /* Take available horizontal space */
+  flex-grow: 1;
+  /* Take available horizontal space */
   display: flex;
-  flex-direction: column; /* Stack heading and log output */
+  flex-direction: column;
+  /* Stack heading and log output */
   background-color: var(--bg-secondary);
   padding: 15px 20px;
   border-radius: var(--border-radius);
   border: 1px solid var(--border-color);
   transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
-  overflow: hidden; /* Hide container scrollbar */
-  min-width: 0; /* Allow shrinking */
+  overflow: hidden;
+  /* Hide container scrollbar */
+  min-width: 0;
+  /* Allow shrinking */
 }
+
 #logContainer h2 {
   margin-top: 0;
   margin-bottom: 10px;
@@ -496,51 +628,74 @@ pre {
 
 /* Log Output Area - THIS IS WHERE LOGS APPEAR */
 #logOutput {
-  flex-grow: 1; /* Take remaining vertical space in logContainer */
+  flex-grow: 1;
+  /* Take remaining vertical space in logContainer */
   background-color: var(--bg-primary);
   color: var(--text-primary);
   padding: 12px 15px;
   border-radius: var(--border-radius);
   border: 1px solid var(--border-color);
-  overflow-y: auto; /* Enable vertical scrolling */
-  min-height: 150px; /* Ensure minimum height */
+  overflow-y: auto;
+  /* Enable vertical scrolling */
+  min-height: 150px;
+  /* Ensure minimum height */
   transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease, color var(--transition-speed) ease;
   /* Flex settings for log entries */
   display: flex;
   flex-direction: column;
-  align-items: flex-start; /* Align items (bubbles/text) to the left */
+  align-items: flex-start;
+  /* Align items (bubbles/text) to the left */
 }
 
 /* --- NEW/MODIFIED Log Entry Styles --- */
 .log-entry {
   /* Basic styling for ALL entries (plain text will mostly use this) */
-  margin-bottom: 4px; /* Small gap between plain text lines */
-  padding: 0 2px; /* Minimal padding for plain text */
-  max-width: 100%; /* Ensure text wraps */
-  word-wrap: break-word; /* Ensure long words break */
-  overflow-wrap: break-word; /* Modern equivalent */
-  white-space: pre-wrap; /* Allow wrapping but preserve whitespace */
-  font-family: Consolas, "Courier New", monospace; /* Use monospace for logs */
+  margin-bottom: 4px;
+  /* Small gap between plain text lines */
+  padding: 0 2px;
+  /* Minimal padding for plain text */
+  max-width: 100%;
+  /* Ensure text wraps */
+  word-wrap: break-word;
+  /* Ensure long words break */
+  overflow-wrap: break-word;
+  /* Modern equivalent */
+  white-space: pre-wrap;
+  /* Allow wrapping but preserve whitespace */
+  font-family: Consolas, "Courier New", monospace;
+  /* Use monospace for logs */
   font-size: 0.9em;
-  line-height: 1.4; /* Adjust line height for readability */
+  line-height: 1.4;
+  /* Adjust line height for readability */
 }
 
 /* Style the action bubbles */
 .log-action-bubble {
-  padding: 8px 8px; /* More padding for bubble effect */
-  border-radius: 15px; /* Rounded corners */
+  padding: 8px 8px;
+  /* More padding for bubble effect */
+  border-radius: 15px;
+  /* Rounded corners */
   /* Use a slightly different background, mix with secondary for theme support */
   background-color: color-mix(in srgb, var(--bg-secondary) 70%, var(--bg-primary) 30%);
-  margin-bottom: 8px; /* Larger gap between bubbles */
+  margin-bottom: 8px;
+  /* Larger gap between bubbles */
   /* Make it fit content, but not exceed a certain width for bubble feel */
-  display: inline-flex; /* Use flex to layout content and timestamp */
-  flex-wrap: wrap; /* Allow wrapping if content + timestamp is too long */
-  align-items: baseline; /* Align text and timestamp nicely */
-  gap: 0 8px; /* Space between message and timestamp */
-  max-width: 90%; /* Prevent very long bubbles from filling width */
-  border: 1px solid var(--border-color); /* Subtle border */
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05); /* Very subtle shadow */
-  white-space: normal; /* Override pre-wrap for bubbles to allow normal wrapping */
+  display: inline-flex;
+  /* Use flex to layout content and timestamp */
+  flex-wrap: wrap;
+  /* Allow wrapping if content + timestamp is too long */
+  align-items: baseline;
+  /* Align text and timestamp nicely */
+  gap: 0 8px;
+  /* Space between message and timestamp */
+  max-width: 90%;
+  /* Prevent very long bubbles from filling width */
+  border: 1px solid var(--border-color);
+  /* Subtle border */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  /* Very subtle shadow */
+  white-space: normal;
+  /* Override pre-wrap for bubbles to allow normal wrapping */
 }
 
 /* Style for the message content within the bubble */
@@ -548,90 +703,187 @@ pre {
   /* Allow content to take space and wrap */
   flex-grow: 1;
   flex-shrink: 1;
-  min-width: 0; /* Important for flex wrapping */
+  min-width: 0;
+  /* Important for flex wrapping */
 }
 
 /* Style the timestamp */
 .log-timestamp {
-  font-size: 0.8em; /* Smaller font size */
-  color: var(--text-primary); /* Use secondary text color */
-  opacity: 0.8; /* Make it slightly faded */
+  font-size: 0.8em;
+  /* Smaller font size */
+  color: var(--text-primary);
+  /* Use secondary text color */
+  opacity: 0.8;
+  /* Make it slightly faded */
   /* Prevent timestamp from shrinking */
   flex-shrink: 0;
   /* Align self slightly lower if needed, but baseline should handle it */
   /* align-self: flex-end; */
-  white-space: nowrap; /* Prevent timestamp from wrapping */
-  margin-left: auto; /* Push to the right if flex layout allows */
-  padding-left: 8px; /* Ensure space if content doesn't wrap */
+  white-space: nowrap;
+  /* Prevent timestamp from wrapping */
+  margin-left: auto;
+  /* Push to the right if flex layout allows */
+  padding-left: 8px;
+  /* Ensure space if content doesn't wrap */
 }
 
 /* Ensure specific log types still get their color (applied to bubble) */
-.log-info { color: var(--info-color); }
-.log-success { color: var(--success-color); font-weight: bold; }
-.log-error { color: var(--error-color); font-weight: bold; }
-.log-warn { color: var(--warn-color); }
+.log-info {
+  color: var(--info-color);
+}
+
+.log-success {
+  color: var(--success-color);
+  font-weight: bold;
+}
+
+.log-error {
+  color: var(--error-color);
+  font-weight: bold;
+}
+
+.log-warn {
+  color: var(--warn-color);
+}
+
 /* Confirm might use warn color, but ensure it's applied */
-.log-confirm { color: var(--warn-color); font-weight: bold; }
+.log-confirm {
+  color: var(--warn-color);
+  font-weight: bold;
+}
 
 /* Colors should apply to the message content primarily */
 .log-action-bubble .log-message-content {
-    color: inherit; /* Inherit color from parent bubble (.log-success, .log-error etc) */
+  color: inherit;
+  /* Inherit color from parent bubble (.log-success, .log-error etc) */
 }
 
 /* Keep existing styles for debug, gemini, func, etc. */
 /* These will appear as plain text unless they get the bubble class */
-.log-gemini-req { color: var(--interactive-color); font-style: italic; opacity: 0.9; }
-.log-gemini-resp { color: var(--text-secondary); opacity: 0.8; }
-.log-func-call { color: var(--warn-color); opacity: 0.9; }
-.log-func-result { color: var(--text-secondary); opacity: 0.7; }
-.log-debug { color: #777; font-size: 0.85em; opacity: 0.7; }
-[data-theme="dark"] .log-debug { color: #aaa; } /* Dark theme debug color */
+.log-gemini-req {
+  color: var(--interactive-color);
+  font-style: italic;
+  opacity: 0.9;
+}
+
+.log-gemini-resp {
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.log-func-call {
+  color: var(--warn-color);
+  opacity: 0.9;
+}
+
+.log-func-result {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.log-debug {
+  color: #777;
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
+[data-theme="dark"] .log-debug {
+  color: #aaa;
+}
+
+/* Dark theme debug color */
 
 /* Ensure diff block styling remains distinct */
 .log-diff pre {
-  margin: 5px 0 8px 0; /* Adjust margin slightly */
+  margin: 5px 0 8px 0;
+  /* Adjust margin slightly */
   padding: 10px 12px;
-  background-color: var(--bg-secondary); /* Make background slightly more prominent */
+  background-color: var(--bg-secondary);
+  /* Make background slightly more prominent */
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   max-width: 100%;
-  overflow-x: auto; /* Allow horizontal scroll if needed */
-  white-space: pre; /* Force pre formatting for diff */
+  overflow-x: auto;
+  /* Allow horizontal scroll if needed */
+  white-space: pre;
+  /* Force pre formatting for diff */
 }
+
 /* Keep diff added/removed/context styles */
 .log-diff span {
   display: block;
-  white-space: pre; /* Ensure spans within diff also respect pre formatting */
-  font-family: Consolas, "Courier New", monospace; /* Ensure monospace font */
+  white-space: pre;
+  /* Ensure spans within diff also respect pre formatting */
+  font-family: Consolas, "Courier New", monospace;
+  /* Ensure monospace font */
 }
-.diff-added { color: var(--success-color); background-color: var(--diff-add-bg); }
-.diff-removed { color: var(--error-color); background-color: var(--diff-remove-bg); }
-.diff-context { color: var(--text-secondary); opacity: 0.8; font-style: italic; }
-.diff-header { color: var(--text-secondary); opacity: 0.6; font-style: italic; } /* Style for --- +++ lines */
+
+.diff-added {
+  color: var(--success-color);
+  background-color: var(--diff-add-bg);
+}
+
+.diff-removed {
+  color: var(--error-color);
+  background-color: var(--diff-remove-bg);
+}
+
+.diff-context {
+  color: var(--text-secondary);
+  opacity: 0.8;
+  font-style: italic;
+}
+
+.diff-header {
+  color: var(--text-secondary);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* Style for --- +++ lines */
 
 
 /* Ensure bubble text inherits colors correctly and add colored borders */
-.log-action-bubble.log-success { border-color: var(--success-color); }
-.log-action-bubble.log-error { border-color: var(--error-color); }
-.log-action-bubble.log-warn { border-color: var(--warn-color); }
-.log-action-bubble.log-confirm { border-color: var(--warn-color); }
-.log-action-bubble.log-info { border-color: var(--info-color); }
+.log-action-bubble.log-success {
+  border-color: var(--success-color);
+}
+
+.log-action-bubble.log-error {
+  border-color: var(--error-color);
+}
+
+.log-action-bubble.log-warn {
+  border-color: var(--warn-color);
+}
+
+.log-action-bubble.log-confirm {
+  border-color: var(--warn-color);
+}
+
+.log-action-bubble.log-info {
+  border-color: var(--info-color);
+}
+
 /* --- End Log Entry Styles --- */
 
 
 /* Context Container */
 #contextContainer {
   width: var(--context-width);
-  flex-shrink: 0; /* Prevent context panel from shrinking */
+  flex-shrink: 0;
+  /* Prevent context panel from shrinking */
   background-color: var(--context-bg);
   border: 1px solid var(--context-border);
   border-radius: var(--border-radius);
   padding: 15px 20px;
   display: flex;
-  flex-direction: column; /* Stack heading and list */
-  overflow: hidden; /* Hide container scrollbar */
+  flex-direction: column;
+  /* Stack heading and list */
+  overflow: hidden;
+  /* Hide container scrollbar */
   transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
 }
+
 #contextContainer h2 {
   margin-top: 0;
   margin-bottom: 10px;
@@ -639,56 +891,80 @@ pre {
   color: var(--text-primary);
   flex-shrink: 0;
 }
+
 #contextList {
   list-style: none;
   padding: 0;
   margin: 0;
-  flex-grow: 1; /* Take remaining vertical space */
-  overflow-y: auto; /* Enable vertical scrolling */
+  flex-grow: 1;
+  /* Take remaining vertical space */
+  overflow-y: auto;
+  /* Enable vertical scrolling */
   font-size: 0.88em;
   color: var(--context-text);
 }
+
 #contextList li {
   padding: 5px 0;
   border-bottom: 1px solid var(--border-color);
-  word-break: break-all; /* Allow long items to break */
+  word-break: break-all;
+  /* Allow long items to break */
   line-height: 1.4;
 }
-#contextList li:last-child { border-bottom: none; }
+
+#contextList li:last-child {
+  border-bottom: none;
+}
 
 
 /* Modal Dialog Styles */
-.modal-dialog { /* Base style for feedback/question containers */
+.modal-dialog {
+  /* Base style for feedback/question containers */
   background-color: var(--bg-secondary);
   padding: 20px 25px;
   border-radius: var(--border-radius);
   border: 1px solid var(--border-color);
-  margin-top: 20px; /* Spacing if shown below controls */
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  margin-top: 20px;
+  /* Spacing if shown below controls */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
-  flex-shrink: 0; /* Prevent modals shrinking */
-  z-index: 10; /* Ensure modals are above other content */
+  flex-shrink: 0;
+  /* Prevent modals shrinking */
+  z-index: 10;
+  /* Ensure modals are above other content */
 }
-.modal-dialog p { /* Style the message/question text */
+
+.modal-dialog p {
+  /* Style the message/question text */
   margin-top: 0;
   margin-bottom: 18px;
   font-weight: bold;
-  color: var(--warn-color); /* Use warn color for prominence */
+  color: var(--warn-color);
+  /* Use warn color for prominence */
   font-size: 1.05em;
   line-height: 1.5;
 }
-.modal-buttons { /* Container for modal buttons */
+
+.modal-buttons {
+  /* Container for modal buttons */
   display: flex;
   gap: 10px;
-  justify-content: flex-end; /* Align buttons to the right */
+  justify-content: flex-end;
+  /* Align buttons to the right */
 }
-.hidden { display: none !important; } /* Utility to hide modals */
+
+.hidden {
+  display: none !important;
+}
+
+/* Utility to hide modals */
 
 /* Specific Modal Button Styling */
 #confirmNo,
 #questionNo {
   background-color: var(--error-color);
 }
+
 #confirmNo:hover:not(:disabled),
 #questionNo:hover:not(:disabled) {
   background-color: color-mix(in srgb, var(--error-color) 85%, black);
@@ -701,6 +977,7 @@ pre {
   /* Default button style uses interactive color, so no override needed unless desired */
   /* background-color: var(--interactive-color); */
 }
+
 #confirmYes:hover:not(:disabled),
 #questionYes:hover:not(:disabled),
 #confirmYesAll:hover:not(:disabled),
@@ -715,15 +992,23 @@ pre {
   gap: 10px;
   margin-bottom: 15px;
 }
-.question-input-group input[type="text"] { flex-grow: 1; }
-.question-input-group button { flex-shrink: 0; }
 
-.question-button-group { /* Can reuse modal-buttons class */ }
+.question-input-group input[type="text"] {
+  flex-grow: 1;
+}
+
+.question-input-group button {
+  flex-shrink: 0;
+}
+
+.question-button-group {
+  /* Can reuse modal-buttons class */
+}
 
 /* Drag and Drop Highlighting */
 .drop-zone.drag-over {
   border-color: var(--interactive-color);
   box-shadow: inset 0 0 8px color-mix(in srgb, var(--interactive-color) 40%, transparent),
-              0 0 0 3px color-mix(in srgb, var(--interactive-color) 25%, transparent);
+    0 0 0 3px color-mix(in srgb, var(--interactive-color) 25%, transparent);
   background-color: color-mix(in srgb, var(--bg-primary) 80%, var(--interactive-color) 20%);
 }

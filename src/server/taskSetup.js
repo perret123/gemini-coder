@@ -13,6 +13,7 @@ import {
 import { createFileSystemHandlers, loadGitignore } from "./fileSystem/index.js"; // Import from index, added .js
 import { runGeminiTask } from "./geminiTaskRunner.js"; // Added .js
 import { model, getToolsDefinition } from "./geminiSetup.js"; // Added .js
+import { queryContext } from "./codeIndexer.js"; // Add this
 
 // Derive __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -176,8 +177,30 @@ export async function setupAndStartTask(socket, data, state) {
       "info",
       true,
     );
-    // Optionally send structure to context? Might be too verbose.
-    // emitContextLogEntry(socket, "initial_state", `Structure: ${structureString.substring(0,100)}...`);
+
+    let retrievedContextFiles = [];
+    if (userPrompt && BASE_DIR) {
+      emitLog(
+        socket,
+        `Checking for indexed context for prompt: "${userPrompt.substring(0, 50)}..."`,
+        "info",
+      );
+      retrievedContextFiles = await queryContext(BASE_DIR, userPrompt); // queryContext is from './codeIndexer.js'
+      if (retrievedContextFiles.length > 0) {
+        emitLog(
+          socket,
+          `Retrieved ${retrievedContextFiles.length} relevant file(s) from codebase index.`,
+          "success",
+          true,
+        );
+      } else {
+        emitLog(
+          socket,
+          "No specific context files retrieved from index for this query.",
+          "info",
+        );
+      }
+    }
 
     // Process uploaded images
     const imageParts = [];
@@ -358,63 +381,47 @@ export async function setupAndStartTask(socket, data, state) {
 
       // Case 3: Start a NEW task
     } else {
-      currentOriginalPromptRef.value = userPrompt; // This is the original prompt for this new task
-      contextChangesToSend = []; // No previous context to send
-
-      // Build system prompt and initial user message parts
+      currentOriginalPromptRef.value = userPrompt;
+      contextChangesToSend = [];
+      // Call buildInitialPrompt WITHOUT retrievedContextFiles (as dynamic context is handled later)
       const {
         coreRoleText,
         structureContextText,
         toolsInfoText,
         rulesAndProcessText,
       } = buildInitialPrompt(BASE_DIR, structureString);
-      const initialUserRequestText = `**Begin Task Execution for User Request:**\n"${userPrompt}"`;
 
-      // Clear any old session and state if not continuing
+      const systemInstructionText = coreRoleText + "\n\n" + rulesAndProcessText;
+      const historyUserPartText = structureContextText + "\n\n" + toolsInfoText; // No dynamic context here yet
+
       if (activeChatSessions.has(socket.id)) {
-        emitLog(
-          socket,
-          "🧹 Starting new task, clearing previous in-memory session.",
-          "debug",
-        );
-        activeChatSessions.delete(socket.id);
+        /* ... */
       }
       if (!continueContext && taskStates.has(BASE_DIR)) {
-        emitLog(
-          socket,
-          `🗑️ Clearing saved state for ${BASE_DIR} as "Continue Context" is unchecked.`,
-          "info",
-          true,
-        );
-        taskStates.delete(BASE_DIR);
-        emitContextLogEntry(
-          socket,
-          "initial_state",
-          "Cleared previous saved state.",
-        );
+        /* ... */
       }
 
       emitLog(socket, "✨ Starting new chat session.", "info", true);
-      // Start chat with system instructions and tool/structure context
       chatSession = model.startChat({
         tools: [tools],
         toolConfig: toolConfig,
         systemInstruction: {
           role: "system",
-          parts: [{ text: coreRoleText + "\n\n" + rulesAndProcessText }],
+          parts: [{ text: systemInstructionText }],
         },
         history: [
-          // Provide structure and tools as initial user message for context
           {
             role: "user",
-            parts: [{ text: structureContextText + "\n\n" + toolsInfoText }],
+            parts: [{ text: historyUserPartText }],
           },
-          // Optional: Add an empty model response to pair with the initial user message?
-          // { role: "model", parts: [{ text: "Understood. Ready for your request."}]}
         ],
       });
-      activeChatSessions.set(socket.id, chatSession); // Store the new session
-      initialMessageParts = [{ text: initialUserRequestText }, ...imageParts]; // First message is the actual request
+      activeChatSessions.set(socket.id, chatSession);
+      // Set the base user prompt here. It will be augmented below.
+      initialMessageParts = [
+        { text: `**Begin Task Execution for User Request:**\n"${userPrompt}"` },
+        ...imageParts,
+      ];
     }
 
     // Send initial context update to the client UI (if any changes were loaded)
@@ -439,6 +446,57 @@ export async function setupAndStartTask(socket, data, state) {
       throw new Error(
         "Internal error: Failed to construct initial message for Gemini (empty prompt/images).",
       );
+    }
+
+    if (retrievedContextFiles && retrievedContextFiles.length > 0) {
+      let dynamicContextForPrompt =
+        "**Potentially Relevant Code Snippets (based on your query and codebase index):**\n\n";
+      for (const fileData of retrievedContextFiles) {
+        const separator = "=".repeat(30);
+        // Ensure file_path is valid before trying path.relative
+        const displayPath = fileData.file_path
+          ? path.relative(BASE_DIR, fileData.file_path) || fileData.file_path
+          : "Unknown file";
+        dynamicContextForPrompt += `FILE: ${displayPath}\n${separator}\n${fileData.content.substring(0, 1500)}${fileData.content.length > 1500 ? "\n...(truncated)...\n" : "\n"}${separator}\n\n`;
+      }
+      dynamicContextForPrompt += "Focus on these snippets if relevant.\n---\n";
+
+      if (initialMessageParts.length > 0 && initialMessageParts[0].text) {
+        initialMessageParts[0].text =
+          dynamicContextForPrompt + initialMessageParts[0].text;
+      } else {
+        // Fallback if initialMessageParts was unexpectedly empty (e.g. only images)
+        initialMessageParts.unshift({
+          text:
+            dynamicContextForPrompt +
+            (userPrompt
+              ? `**User Request:**\n"${userPrompt}"`
+              : "Please proceed based on the context."),
+        });
+      }
+    }
+
+    if (contextChangesToSend.length > 0) {
+      /* ... */
+    }
+    if (!chatSession) {
+      throw new Error("Internal error: Chat session was not initialized.");
+    }
+    // Ensure initialMessageParts has at least one text part if no images, or Gemini might error.
+    if (
+      initialMessageParts.length === 0 ||
+      (initialMessageParts.every((p) => !p.text) && imageParts.length === 0)
+    ) {
+      initialMessageParts = [
+        { text: userPrompt || "Please proceed with the task." },
+      ]; // Add a fallback text part
+    } else if (
+      initialMessageParts.every((p) => !p.text) &&
+      imageParts.length > 0
+    ) {
+      initialMessageParts.unshift({
+        text: userPrompt || "Process the provided image(s) and instructions.",
+      }); // Ensure a text part with images
     }
 
     // Create handlers context, including the reference to the *current* changesLog array

@@ -6,14 +6,70 @@ import {
   hideFeedback,
   hideQuestionInput,
   setControlsEnabled,
-} from "./uiHelpers.js"; // Import needed UI functions
+} from "./uiHelpers.js";
+import { fetchLastIndexedTime } from "./socketHandlerClient.js"; // Corrected import
 
 // Module-level state for tasks
 let tasks = [];
 let selectedTaskId = "new"; // Represents the ID of the currently selected task ("new" for a new task)
+let baseDirHistory = []; // For storing recent base directories
 
 const TASK_STORAGE_KEY = "gemini-coder-tasks";
 const SELECTED_TASK_KEY = "gemini-coder-selected-task";
+const BASE_DIR_HISTORY_KEY = "gemini-coder-base-dir-history"; // New key for base directory history
+const MAX_BASE_DIR_HISTORY = 10; // Max number of base directories to store
+
+// --- Base Directory History Functions ---
+function loadBaseDirHistory() {
+  try {
+    const storedHistory = localStorage.getItem(BASE_DIR_HISTORY_KEY);
+    if (storedHistory) {
+      const parsedHistory = JSON.parse(storedHistory);
+      if (Array.isArray(parsedHistory)) {
+        baseDirHistory = parsedHistory;
+      }
+    }
+  } catch (e) {
+    console.error("Error loading base directory history from localStorage:", e);
+    baseDirHistory = [];
+  }
+}
+
+function saveBaseDirHistory() {
+  try {
+    localStorage.setItem(BASE_DIR_HISTORY_KEY, JSON.stringify(baseDirHistory));
+  } catch (e) {
+    console.error("Error saving base directory history to localStorage:", e);
+  }
+}
+
+function addBaseDirToHistory(baseDir) {
+  if (!baseDir || typeof baseDir !== "string" || !baseDir.trim()) {
+    return; // Do not add empty or invalid base directories
+  }
+  const trimmedBaseDir = baseDir.trim();
+  // Remove existing entry if it exists to move it to the top (most recent)
+  baseDirHistory = baseDirHistory.filter((dir) => dir !== trimmedBaseDir);
+  baseDirHistory.unshift(trimmedBaseDir); // Add to the beginning
+  // Limit history size
+  if (baseDirHistory.length > MAX_BASE_DIR_HISTORY) {
+    baseDirHistory = baseDirHistory.slice(0, MAX_BASE_DIR_HISTORY);
+  }
+  saveBaseDirHistory();
+  populateBaseDirDatalist(); // Update datalist after adding
+}
+
+function populateBaseDirDatalist() {
+  const datalist = document.getElementById("baseDirHistory");
+  if (datalist) {
+    datalist.innerHTML = ""; // Clear existing options
+    baseDirHistory.forEach((dir) => {
+      const option = document.createElement("option");
+      option.value = dir;
+      datalist.appendChild(option);
+    });
+  }
+}
 
 // --- Task Utility Functions ---
 
@@ -34,17 +90,15 @@ export function loadTasks() {
     const storedTasks = localStorage.getItem(TASK_STORAGE_KEY);
     if (storedTasks) {
       const parsedTasks = JSON.parse(storedTasks);
-      // Basic validation: ensure it"s an array
       if (Array.isArray(parsedTasks)) {
-        // Map stored data to task objects, providing defaults
         tasks = parsedTasks.map((task) => ({
-          id: task.id || String(Date.now() + Math.random()), // Ensure ID exists
+          id: task.id || String(Date.now() + Math.random()),
           title:
             task.title || generateTaskTitle(task.prompt) || "Untitled Task",
           baseDir: task.baseDir || "",
           prompt: task.prompt || "",
           continueContext: task.continueContext || false,
-          temperature: task.temperature ?? 1, // Default temp if missing
+          temperature: task.temperature ?? 1,
         }));
       } else {
         console.warn(
@@ -53,14 +107,12 @@ export function loadTasks() {
         tasks = [];
       }
     } else {
-      tasks = []; // No tasks stored
+      tasks = [];
     }
 
-    // Load last selected task ID
     const lastSelected = localStorage.getItem(SELECTED_TASK_KEY);
-    selectedTaskId = lastSelected || "new"; // Default to "new"
+    selectedTaskId = lastSelected || "new";
 
-    // Validate selectedTaskId: if it"s not "new" and doesn"t exist in loaded tasks, reset to "new"
     if (
       selectedTaskId !== "new" &&
       !tasks.some((t) => String(t.id) === String(selectedTaskId))
@@ -69,11 +121,11 @@ export function loadTasks() {
         `Selected task ID "${selectedTaskId}" not found in loaded tasks. Resetting to "new".`,
       );
       selectedTaskId = "new";
-      localStorage.setItem(SELECTED_TASK_KEY, selectedTaskId); // Persist reset
+      localStorage.setItem(SELECTED_TASK_KEY, selectedTaskId);
     }
   } catch (e) {
     console.error("Error loading tasks from localStorage:", e);
-    tasks = []; // Reset on error
+    tasks = [];
     selectedTaskId = "new";
     addLogMessage(
       "⚠️ Could not load tasks from local storage. Starting fresh.",
@@ -81,6 +133,7 @@ export function loadTasks() {
       true,
     );
   }
+  loadBaseDirHistory(); // Load base directory history
   console.log(
     `Loaded ${tasks.length} tasks. Selected Task ID: ${selectedTaskId}`,
   );
@@ -88,14 +141,19 @@ export function loadTasks() {
 
 export function saveTasks() {
   try {
-    // Ensure all tasks have IDs and titles before saving
-    tasks = tasks.map((task) => ({
-      ...task,
-      id: task.id || String(Date.now() + Math.random()), // Assign ID if missing
-      title: task.title || generateTaskTitle(task.prompt) || "Untitled Task",
-    }));
+    tasks = tasks.map((task) => {
+      // Add current task"s baseDir to history if it exists
+      if (task.baseDir) {
+        addBaseDirToHistory(task.baseDir);
+      }
+      return {
+        ...task,
+        id: task.id || String(Date.now() + Math.random()),
+        title: task.title || generateTaskTitle(task.prompt) || "Untitled Task",
+      };
+    });
     localStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(tasks));
-    localStorage.setItem(SELECTED_TASK_KEY, String(selectedTaskId)); // Save selected ID
+    localStorage.setItem(SELECTED_TASK_KEY, String(selectedTaskId));
     console.log(`Saved ${tasks.length} tasks. Selected: ${selectedTaskId}`);
   } catch (e) {
     console.error("Error saving tasks to localStorage:", e);
@@ -109,8 +167,6 @@ export function saveTasks() {
 
 // --- State Accessors/Mutators ---
 export function getTasks() {
-  // Return a copy to prevent direct external modification? Or return ref?
-  // Returning reference for now, assuming internal use is careful.
   return tasks;
 }
 
@@ -118,24 +174,26 @@ export function getSelectedTaskId() {
   return selectedTaskId;
 }
 
-// Function to update selected task ID and re-render
 export function selectTask(taskId) {
   if (taskId !== selectedTaskId) {
     selectedTaskId = taskId;
-    saveTasks(); // Persist the selection change
-    renderTaskList(); // Re-render the list and update inputs
+    saveTasks(); // Persist the selection change (this will also update baseDirHistory via saveTasks -> addBaseDirToHistory)
+    renderTaskList();
   }
 }
 
-// Function to add a new task
 export function addTask(taskData) {
   const newTask = {
-    id: String(Date.now() + Math.random()), // Generate ID
+    id: String(Date.now() + Math.random()),
     title: generateTaskTitle(taskData.prompt) || "Untitled Task",
-    ...taskData, // Spread the rest of the data (baseDir, prompt, etc.)
+    ...taskData,
   };
-  tasks.unshift(newTask); // Add to the beginning of the list
-  selectedTaskId = newTask.id; // Select the newly added task
+  tasks.unshift(newTask);
+  selectedTaskId = newTask.id;
+  if (newTask.baseDir) {
+    // Add new task"s baseDir to history
+    addBaseDirToHistory(newTask.baseDir);
+  }
   saveTasks();
   renderTaskList();
   addLogMessage(
@@ -143,21 +201,22 @@ export function addTask(taskData) {
     "info",
     true,
   );
-  return newTask; // Return the created task object
+  return newTask;
 }
 
-// Function to update an existing task
 export function updateTask(taskId, updates) {
   const taskIndex = tasks.findIndex((t) => String(t.id) === String(taskId));
   if (taskIndex > -1) {
-    // Generate title if prompt changed and title wasn"t explicitly provided
     if (updates.prompt && !updates.title) {
       updates.title = generateTaskTitle(updates.prompt);
     }
     tasks[taskIndex] = { ...tasks[taskIndex], ...updates };
+    if (updates.baseDir) {
+      // If baseDir is updated, add it to history
+      addBaseDirToHistory(updates.baseDir);
+    }
     saveTasks();
-    // Re-render might be needed if title changed
-    renderTaskList(); // Simple approach: always re-render on update
+    renderTaskList();
     addLogMessage(
       `🔄 Updated task "${tasks[taskIndex].title}" with current settings.`,
       "info",
@@ -178,9 +237,8 @@ export function renderTaskList() {
     return;
   }
 
-  taskList.innerHTML = ""; // Clear existing list
+  taskList.innerHTML = "";
 
-  // Add "New Task" item
   const newTaskLi = document.createElement("li");
   newTaskLi.className = "task-item new-task-item";
   newTaskLi.dataset.taskId = "new";
@@ -190,49 +248,42 @@ export function renderTaskList() {
   }
   taskList.appendChild(newTaskLi);
 
-  // Add existing tasks
   tasks.forEach((task) => {
     const li = document.createElement("li");
     li.className = "task-item";
     li.dataset.taskId = String(task.id);
     if (String(task.id) === String(selectedTaskId)) {
-      li.classList.add("active"); // Highlight selected task
+      li.classList.add("active");
     }
 
-    // Task Title Span
     const titleSpan = document.createElement("span");
     titleSpan.className = "task-title";
     titleSpan.textContent = task.title || "Untitled Task";
-    titleSpan.title = task.prompt || "No prompt"; // Tooltip with full prompt
+    titleSpan.title = task.prompt || "No prompt";
 
-    // Delete Button
     const deleteBtn = document.createElement("button");
     deleteBtn.className = "delete-task-btn";
-    deleteBtn.innerHTML = "🗑️"; // Use innerHTML for emoji
+    deleteBtn.innerHTML = "🗑️";
     deleteBtn.title = "Delete Task";
-    deleteBtn.dataset.taskId = String(task.id); // Store ID for delete handler
+    deleteBtn.dataset.taskId = String(task.id);
 
     li.appendChild(titleSpan);
     li.appendChild(deleteBtn);
     taskList.appendChild(li);
   });
 
-  // Update form inputs based on the new selection (or "new")
   updateInputsFromSelection();
 }
 
-// Updates the main form inputs based on the selected task
 export function updateInputsFromSelection() {
-  // Get references to all relevant UI elements
   const baseDirInput = document.getElementById("baseDir");
   const promptInput = document.getElementById("prompt");
   const continueContextCheckbox = document.getElementById("continueContext");
   const temperatureSlider = document.getElementById("temperatureSlider");
   const temperatureValueSpan = document.getElementById("temperatureValue");
-  const logOutput = document.getElementById("logOutput"); // Clear logs on task switch
-  const imageUploadInput = document.getElementById("imageUpload"); // Clear file input
+  const logOutput = document.getElementById("logOutput");
+  const imageUploadInput = document.getElementById("imageUpload");
 
-  // Check if all elements are found
   if (
     !baseDirInput ||
     !promptInput ||
@@ -248,27 +299,21 @@ export function updateInputsFromSelection() {
     return;
   }
 
-  // --- Reset State ---
-  // Clear context display and storage (as context is per-task run)
-  clearContextAndStorage(); // From uiHelpers
-  // Clear log output
+  populateBaseDirDatalist(); // Populate datalist when inputs are updated
+
+  clearContextAndStorage();
   logOutput.innerHTML = "";
-  // Clear file input
   imageUploadInput.value = "";
-  updateUploadTriggerText(); // Update file button text
-  // Hide any pending confirmation/question modals
+  updateUploadTriggerText();
   hideFeedback();
   hideQuestionInput();
-  // Ensure controls are enabled initially when switching tasks
   setControlsEnabled(true);
 
-  // --- Populate Inputs ---
   if (selectedTaskId === "new") {
-    // Reset form for a new task
     baseDirInput.value = "";
     promptInput.value = "";
     continueContextCheckbox.checked = false;
-    temperatureSlider.value = 1; // Default temperature
+    temperatureSlider.value = 1;
     temperatureValueSpan.textContent = parseFloat(
       temperatureSlider.value,
     ).toFixed(1);
@@ -278,10 +323,8 @@ export function updateInputsFromSelection() {
       true,
     );
   } else {
-    // Find the selected task
     const task = tasks.find((t) => String(t.id) === String(selectedTaskId));
     if (task) {
-      // Populate form with task data
       baseDirInput.value = task.baseDir;
       promptInput.value = task.prompt;
       continueContextCheckbox.checked = task.continueContext;
@@ -290,44 +333,60 @@ export function updateInputsFromSelection() {
         1,
       );
       addLogMessage(`Selected task: "${task.title}". Ready.`, "info", true);
+      // Add the selected task"s baseDir to history if not already prominent
+      if (task.baseDir) addBaseDirToHistory(task.baseDir);
     } else {
-      // Should not happen if loadTasks validation works, but handle defensively
       console.error(
         `Selected task ID ${selectedTaskId} not found! Resetting to "new".`,
       );
-      selectTask("new"); // Use the selectTask function to handle reset and re-render
+      selectTask("new");
     }
+  }
+
+  if (selectedTaskId === "new") {
+    if (typeof fetchLastIndexedTime === "function") fetchLastIndexedTime("");
+  } else {
+    const task = tasks.find((t) => String(t.id) === String(selectedTaskId));
+    if (task) {
+      if (typeof fetchLastIndexedTime === "function")
+        fetchLastIndexedTime(task.baseDir);
+    } else {
+      if (typeof fetchLastIndexedTime === "function") fetchLastIndexedTime("");
+    }
+  }
+  // Add event listener to baseDir input to update history on change
+  if (baseDirInput) {
+    baseDirInput.addEventListener("change", (event) => {
+      if (event.target.value) {
+        addBaseDirToHistory(event.target.value);
+      }
+    });
   }
 }
 
 // --- Event Handlers ---
 
-// Handles clicks within the task list (selection or delete)
 export function handleTaskClick(event) {
   const target = event.target;
-  const taskItem = target.closest(".task-item"); // Find the parent task item LI
+  const taskItem = target.closest(".task-item");
 
-  if (!taskItem) return; // Clicked outside a task item
+  if (!taskItem) return;
 
   const taskId = taskItem.dataset.taskId;
 
-  // Check if the delete button was clicked
   if (target.classList.contains("delete-task-btn")) {
-    const taskIdToDelete = target.dataset.taskId; // Get ID from button"s dataset
+    const taskIdToDelete = target.dataset.taskId;
     handleDeleteClick(taskIdToDelete);
-    return; // Stop further processing
+    return;
   }
 
-  // If a task item itself (not delete button) was clicked, select it
   if (taskId) {
-    // Ensure taskId is valid
-    selectTask(taskId); // Use the selection function
+    selectTask(taskId);
   }
 }
 
-// Handles the delete button click confirmation and action
 function handleDeleteClick(taskIdToDelete) {
-  if (!taskIdToDelete || taskIdToDelete === "new") return; // Cannot delete "new" task placeholder
+  if (!taskIdToDelete || taskIdToDelete === "new") return;
 
   const taskToDelete = tasks.find(
     (t) => String(t.id) === String(taskIdToDelete),
@@ -337,25 +396,21 @@ function handleDeleteClick(taskIdToDelete) {
     return;
   }
 
-  // Confirm deletion with the user
   if (
     !confirm(
       `Are you sure you want to delete the task "${taskToDelete.title}"? This cannot be undone.`,
     )
   ) {
-    return; // User cancelled
+    return;
   }
 
-  // Filter out the task to delete
   tasks = tasks.filter((task) => String(task.id) !== String(taskIdToDelete));
 
-  // If the deleted task was selected, switch to "new" task view
   if (selectedTaskId === taskIdToDelete) {
-    selectTask("new"); // Use selection function to handle UI update
+    selectTask("new");
   } else {
-    // Otherwise, just save the updated task list (selection remains the same)
     saveTasks();
-    renderTaskList(); // Re-render list without deleted item
+    renderTaskList();
   }
 
   addLogMessage(`Task "${taskToDelete.title}" deleted.`, "info", true);
@@ -363,10 +418,9 @@ function handleDeleteClick(taskIdToDelete) {
 
 // --- Initialization ---
 export function initializeTaskManager() {
-  loadTasks(); // Load tasks from storage on init
-  renderTaskList(); // Render the initial list and inputs
+  loadTasks(); // Load tasks and base directory history
+  renderTaskList(); // Render the initial list and inputs (which calls updateInputsFromSelection -> populateBaseDirDatalist)
 
-  // Attach event listener to the task list container (event delegation)
   const taskListElement = document.getElementById("taskList");
   if (taskListElement) {
     taskListElement.addEventListener("click", handleTaskClick);
@@ -377,5 +431,3 @@ export function initializeTaskManager() {
   }
   console.log("Task Manager initialized.");
 }
-
-// No need for module.exports check

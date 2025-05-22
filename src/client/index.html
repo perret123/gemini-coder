@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,6 +10,7 @@
     <!-- Consider adding a favicon -->
     <!-- <link rel="icon" href="favicon.ico" type="image/x-icon"> -->
 </head>
+
 <body class="app-container"> <!-- Base class for styling -->
 
     <!-- Sidebar for Task List -->
@@ -32,17 +34,33 @@
         <div id="controls">
             <div class="form-group">
                 <label for="baseDir">Base Directory:</label>
-                <input type="text" id="baseDir" placeholder="e.g., . or /path/to/project" required>
+                <div class="base-dir-controls"> <!-- New wrapper -->
+                    <input type="text" id="baseDir" list="baseDirHistory" placeholder="e.g., . or /path/to/project" required>
+                    <datalist id="baseDirHistory"></datalist> <!-- Datalist for suggestions -->
+                    <button id="indexCodebaseButton" title="Index this codebase for context-aware prompting">Index
+                        Codebase</button>
+                </div>
+                <small id="lastIndexedStatus">Last Indexed: Never</small>
+                <div id="indexingProgressBarContainer" class="hidden" style="margin-top: 5px;">
+                    <div id="indexingProgressBar"
+                        style="width: 0%; height: 10px; background-color: var(--interactive-color); border-radius: var(--border-radius); transition: width 0.3s ease;">
+                    </div>
+                    <small id="indexingProgressText"
+                        style="margin-top: 2px; display: block; text-align: center;"></small>
+                </div>
                 <small>Path relative to server or absolute. Ensure server has permissions. Required.</small>
             </div>
 
             <div class="form-group prompt-container">
                 <label for="prompt">Your Instructions:</label>
                 <!-- Added drop-zone class for potential styling -->
-                <textarea id="prompt" class="drop-zone" rows="5" placeholder="Enter detailed instructions... (e.g., Rename utils/helper.js to utils/helpers.js and update imports in main.js). You can also drop files here." required></textarea>
+                <textarea id="prompt" class="drop-zone" rows="5"
+                    placeholder="Enter detailed instructions... (e.g., Rename utils/helper.js to utils/helpers.js and update imports in main.js). You can also drop files here."
+                    required></textarea>
                 <!-- Custom button to trigger file input -->
-                <button id="customUploadTrigger" class="file-upload-button" title="Attach Files (or drop here)">📎</button>
-                 <!-- Visually hidden actual file input -->
+                <button id="customUploadTrigger" class="file-upload-button"
+                    title="Attach Files (or drop here)">📎</button>
+                <!-- Visually hidden actual file input -->
                 <input type="file" id="imageUpload" accept="image/*" multiple class="visually-hidden">
             </div>
 
@@ -55,7 +73,8 @@
                 </label>
                 <div class="temperature-slider-container">
                     <label for="temperatureSlider">Temp:</label>
-                    <input type="range" id="temperatureSlider" name="temperature" min="0.5" max="1.5" step="0.1" value="1">
+                    <input type="range" id="temperatureSlider" name="temperature" min="0.5" max="1.5" step="0.1"
+                        value="1">
                     <span id="temperatureValue">1</span>
                 </div>
             </div>
@@ -87,7 +106,7 @@
         <!-- Confirmation Dialog (Hidden by default) -->
         <div id="feedbackContainer" class="hidden modal-dialog">
             <p id="feedbackMessage">Confirmation required...</p>
-             <div class="modal-buttons">
+            <div class="modal-buttons">
                 <button id="confirmYes">Yes</button>
                 <button id="confirmYesAll">Yes to All</button>
                 <button id="confirmNo">No</button>
@@ -128,4 +147,5 @@
     <script src="dist/js/bundle.js" defer></script>
 
 </body>
+
 </html>

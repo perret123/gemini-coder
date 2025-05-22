@@ -2,6 +2,7 @@
 import { emitLog } from "./utils.js"; // Added .js
 import { setupAndStartTask } from "./taskSetup.js"; // Added .js
 import { setupSocketListeners } from "./socketListeners.js"; // Added .js
+import { triggerIndexing } from "./codeIndexer.js";
 
 // Global state (consider alternatives like per-user state if scaling)
 const taskStates = new Map(); // Stores { baseDir: { originalPrompt, changes: [], timestamp } }
@@ -43,6 +44,17 @@ export function handleSocketConnection(socket) {
 
   // Add other potential one-off listeners here if needed
   // socket.on("some-other-event", (data) => { ... });
+  socket.on("trigger-indexing", async (data) => {
+    const { baseDir, mode } = data;
+    if (!baseDir) {
+      socket.emit("indexing-status", {
+        type: "error",
+        message: "Base directory is required for indexing.",
+      });
+      return;
+    }
+    // We pass the current socket instance to triggerIndexing so it can emit progress directly
+    await triggerIndexing(socket, baseDir, mode);
+  });
 }
-
 // No need for module.exports when using ES6 modules

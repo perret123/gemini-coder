@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // c:\dev\gemini-coder\src\client\client.js
 
 // Import necessary functions from modules
 import { addLogMessage } from "./js/logger.js";
 import { initializeThemeManager } from "./js/themeManager.js";
 import {
+  initializeIndexingControls,
   loadContextFromLocalStorage,
   clearContextAndStorage,
   setControlsEnabled,
@@ -22,6 +24,8 @@ import {
   updateTask, // Use function to update
 } from "./js/taskManager.js";
 import {
+  sendIndexRequestToServer,
+  fetchLastIndexedTime,
   initializeSocket,
   sendTaskToServer,
 } from "./js/socketHandlerClient.js";
@@ -323,7 +327,5 @@ document.addEventListener("DOMContentLoaded", () => {
     handleTemperatureChange(); // Set initial display value
   }
 
-  console.log("Client-side initialization sequence complete.");
+  initializeIndexingControls(sendIndexRequestToServer, fetchLastIndexedTime);
 });
-
-// No need for module.exports check

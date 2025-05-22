@@ -12,6 +12,7 @@ import dotenv from "dotenv";
 // Import local modules
 import { handleSocketConnection } from "./socketHandler.js"; // Added .js
 import { modelName } from "./geminiSetup.js"; // Import modelName for logging
+import { getLastIndexedTime } from "./codeIndexer.js";
 
 dotenv.config(); // Load environment variables from .env file
 
@@ -147,6 +148,39 @@ app.post("/upload", (req, res) => {
 // Serve the main index.html for the root path
 app.get("/", (req, res) => {
   res.sendFile(path.resolve(CLIENT_PATH, "index.html"));
+});
+
+app.post("/api/index-codebase", async (req, res) => {
+  // For triggering indexing, we need socket.io instance to send progress.
+  // This is tricky with a simple HTTP endpoint if client is not yet connected via socket
+  // or if we want to associate it with a specific socket.
+  // For now, let's assume this is called by a client that *has* a socket.
+  // We'd need to find the socket. Or, better, make this a socket.io event.
+  // Let's make it a socket event instead for easier progress updates.
+  // This HTTP endpoint will be for fetching initial status perhaps.
+  res.status(501).json({
+    message:
+      "Indexing should be triggered via Socket.IO event 'trigger-indexing'.",
+  });
+});
+
+app.get("/api/last-indexed-time", async (req, res) => {
+  const projectDir = req.query.baseDir;
+  if (!projectDir) {
+    return res
+      .status(400)
+      .json({ error: "baseDir query parameter is required." });
+  }
+  try {
+    const status = await getLastIndexedTime(projectDir);
+    res.json(status);
+  } catch (error) {
+    console.error("Error getting last indexed time:", error);
+    res.status(500).json({
+      error: "Failed to get indexing status.",
+      details: error.message,
+    });
+  }
 });
 
 // --- Socket.IO Connection Handling ---

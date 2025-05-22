@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // c:\dev\gemini-coder\src\client\js\uiHelpers.js
 import { addLogMessage } from "./logger.js"; // Import necessary functions
 
@@ -672,4 +673,128 @@ export function initializeModalListeners() {
   console.log("UI Helper modal event listeners initialized.");
 }
 
-// No need for module.exports check
+export function updateIndexingProgress(data) {
+  const progressBarContainer = document.getElementById(
+    "indexingProgressBarContainer",
+  );
+  const progressBar = document.getElementById("indexingProgressBar");
+  const progressText = document.getElementById("indexingProgressText");
+  const logOutput = document.getElementById("logOutput"); // For detailed messages
+
+  if (!progressBarContainer || !progressBar || !progressText) return;
+
+  progressBarContainer.classList.remove("hidden");
+
+  if (data.type === "progress" || data.type === "progress_text") {
+    let message = data.message || "Processing...";
+    if (data.percentage !== undefined) {
+      progressBar.style.width = `${data.percentage}%`;
+      message = `(${data.percentage}%) ${message}`;
+    }
+    progressText.textContent = message;
+    if (data.type !== "progress_text") {
+      // Don't double-log simple text updates if already in progress bar
+      addLogMessage(`[Indexer]: ${data.message}`, "info");
+    }
+  } else if (data.type === "completed") {
+    progressBar.style.width = "100%";
+    progressText.textContent = data.message || "Indexing Complete!";
+    addLogMessage(
+      `[Indexer]: ${data.message || "Indexing Complete!"}`,
+      "success",
+      true,
+    );
+    setTimeout(() => progressBarContainer.classList.add("hidden"), 3000);
+  } else if (data.type === "error") {
+    progressBar.style.width = "100%"; // Or some other indication
+    progressBar.style.backgroundColor = "var(--error-color)"; // Indicate error
+    progressText.textContent = `Error: ${data.message || "Unknown error"}`;
+    addLogMessage(
+      `[Indexer ERROR]: ${data.message || "Unknown error"}`,
+      "error",
+      true,
+    );
+    // Keep error visible for a bit longer or until user action
+    // setTimeout(() => {
+    // progressBarContainer.classList.add("hidden");
+    // progressBar.style.backgroundColor = "var(--interactive-color)"; // Reset color
+    // }, 5000);
+  } else if (data.type === "info" || data.type === "warning") {
+    addLogMessage(
+      `[Indexer ${data.type.toUpperCase()}]: ${data.message}`,
+      data.type,
+    );
+    progressText.textContent = data.message; // Update text display
+  }
+}
+
+export function setIndexingControlsEnabled(enabled) {
+  const indexButton = document.getElementById("indexCodebaseButton");
+  const baseDirInput = document.getElementById("baseDir");
+  if (indexButton) indexButton.disabled = !enabled;
+  if (baseDirInput) baseDirInput.disabled = !enabled; // Also disable baseDir input during indexing
+}
+
+// Add at the end of initializeModalListeners or create a new init function for these
+export function initializeIndexingControls(onIndexRequest, onBaseDirChange) {
+  const indexButton = document.getElementById("indexCodebaseButton");
+  const baseDirInput = document.getElementById("baseDir");
+
+  if (indexButton) {
+    indexButton.addEventListener("click", () => {
+      const baseDir = baseDirInput.value.trim();
+      if (!baseDir) {
+        addLogMessage("Please enter a Base Directory to index.", "error", true);
+        baseDirInput.focus();
+        return;
+      }
+      // Ask user for mode (full or update) - for simplicity, default to 'update'
+      // Or add another UI element for this. For now, let's make it 'update' by default.
+      // A more advanced version could check the last indexed date and suggest 'full' if never/old.
+      let mode = "update";
+      const lastIndexedText = document
+        .getElementById("lastIndexedStatus")
+        .textContent.toLowerCase();
+      if (
+        lastIndexedText.includes("never") ||
+        lastIndexedText.includes("error fetching") ||
+        lastIndexedText.includes("not indexed")
+      ) {
+        if (
+          confirm(
+            "This directory doesn't seem to be indexed or the last index was long ago. Perform a full re-index? (Cancel for a quicker update scan)",
+          )
+        ) {
+          mode = "full";
+        }
+      }
+
+      if (typeof onIndexRequest === "function") {
+        onIndexRequest(baseDir, mode); // Use the callback
+      } else {
+        addLogMessage(
+          "Error: Indexing request function not provided.",
+          "error",
+          true,
+        );
+        console.error(
+          "onIndexRequest callback is not a function in initializeIndexingControls",
+        );
+      }
+    });
+  }
+
+  if (baseDirInput) {
+    baseDirInput.addEventListener("change", () => {
+      if (typeof fetchLastIndexedTime === "function") {
+        onBaseDirChange(baseDirInput.value.trim());
+      }
+    });
+    baseDirInput.addEventListener("keyup", (_event) => {
+      // Update on paste or quick typing
+      if (typeof fetchLastIndexedTime === "function") {
+        onBaseDirChange(baseDirInput.value.trim());
+      }
+    });
+  }
+}

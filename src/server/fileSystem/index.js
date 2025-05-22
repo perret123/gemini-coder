@@ -6,12 +6,7 @@ import { createFileSystemHandlers } from "./createFileSystemHandlers.js";
 import { performUndoOperation } from "./performUndoOperation.js";
 
 // Export them as named exports
-export {
-    loadGitignore,
-    createFileSystemHandlers,
-    performUndoOperation
-};
-
+export { loadGitignore, createFileSystemHandlers, performUndoOperation };
 
 /**
  * @typedef {object} FileSystemHandlerContext

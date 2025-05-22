@@ -9,7 +9,9 @@ import {
   hideFeedback,
   showQuestionInput,
   hideQuestionInput,
-  displayImageResult, // Assuming this is now in uiHelpers
+  displayImageResult,
+  updateIndexingProgress,
+  setIndexingControlsEnabled,
 } from "./uiHelpers.js";
 
 // Module-level state
@@ -279,6 +281,21 @@ export function initializeSocket() {
     }
   });
 
+  socket.on("indexing-status", (data) => {
+    console.log("Indexing Status:", data);
+    updateIndexingProgress(data); // We'll create this helper
+    if (data.type === "completed" || data.type === "error") {
+      setIndexingControlsEnabled(true); // Re-enable button
+      // Optionally, refresh last indexed date
+      const baseDirInput = document.getElementById("baseDir");
+      if (baseDirInput && baseDirInput.value) {
+        fetchLastIndexedTime(baseDirInput.value);
+      }
+    } else if (data.type === "progress" || data.type === "progress_text") {
+      setIndexingControlsEnabled(false); // Disable while running
+    }
+  });
+
   console.log("Socket initialization complete. Event listeners attached.");
   return socket; // Return the initialized socket instance
 }
@@ -351,4 +368,50 @@ export function updateTaskControlButtonState(isRunning) {
   }
 }
 
-// No need for module.exports check
+export function sendIndexRequestToServer(baseDir, mode) {
+  if (socket && socket.connected) {
+    socket.emit("trigger-indexing", { baseDir, mode });
+    setIndexingControlsEnabled(false);
+    updateIndexingProgress({
+      type: "progress",
+      message: `Requesting ${mode} indexing for ${baseDir}...`,
+      percentage: 0,
+    });
+  } else {
+    addLogMessage(
+      "Error: Not connected to server. Cannot start indexing.",
+      "error",
+      true,
+    );
+  }
+}
+
+// Add fetchLastIndexedTime if it's not elsewhere or make it part of a UI update function
+export async function fetchLastIndexedTime(baseDir) {
+  if (!baseDir) {
+    document.getElementById("lastIndexedStatus").textContent =
+      "Last Indexed: (Enter Base Directory)";
+    return;
+  }
+  try {
+    const response = await fetch(
+      `/api/last-indexed-time?baseDir=${encodeURIComponent(baseDir)}`,
+    );
+    const data = await response.json();
+    if (response.ok) {
+      const statusEl = document.getElementById("lastIndexedStatus");
+      if (data.timestamp && data.timestamp > 0) {
+        statusEl.textContent = `Last Indexed: ${new Date(data.timestamp * 1000).toLocaleString()}`;
+      } else {
+        statusEl.textContent = `Last Indexed: ${data.message || "Never"}`;
+      }
+    } else {
+      document.getElementById("lastIndexedStatus").textContent =
+        `Last Indexed: Error fetching status (${data.error || response.statusText})`;
+    }
+  } catch (error) {
+    console.error("Error fetching last indexed time:", error);
+    document.getElementById("lastIndexedStatus").textContent =
+      "Last Indexed: Network error";
+  }
+}
