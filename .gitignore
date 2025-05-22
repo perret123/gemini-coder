@@ -3,3 +3,5 @@ node_modules/
 .env
 public/
 uploads/
+src/client/dist
+vector_stores/

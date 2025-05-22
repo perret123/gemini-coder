@@ -1,0 +1,131 @@
+/* Responsive styles for screens 600px wide or less */
+/* c:\\dev\\gemini-coder\\src\\client\\mobile.css */
+
+:root {
+  /* Adjust font size slightly for mobile */
+  --font-size: 14px;
+}
+
+body, .app-container {
+  /* Stack sidebar and main content vertically */
+  flex-direction: column;
+  height: auto; /* Allow body to grow */
+  min-height: 100vh; /* Ensure it still fills viewport */
+}
+
+#taskListContainer {
+  /* Sidebar takes full width, remove fixed height */
+  width: 100%;
+  height: auto; /* Let content determine height */
+  max-height: 40vh; /* Limit height, make it scrollable if needed */
+  border-right: none;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0; /* Prevent shrinking */
+  overflow-y: auto; /* Ensure it scrolls if content exceeds max-height */
+}
+
+/* Adjust task list scrolling */
+#taskList {
+  margin-right: 0;
+  padding-right: 0;
+}
+
+.main-content {
+  /* Main content takes full width */
+  width: 100%;
+  padding: 15px; /* Slightly reduce padding */
+  max-height: none; /* Remove height restriction */
+  overflow-y: visible; /* Allow main content to scroll naturally if needed */
+}
+
+#controls {
+  /* Reduce padding inside controls */
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+/* Make prompt textarea slightly smaller */
+textarea#prompt {
+  min-height: 80px;
+}
+
+.context-temp-group {
+  /* Allow wrap earlier if needed */
+  gap: 10px 15px;
+}
+
+/* Stack logs and context vertically */
+.logs-and-context-wrapper {
+  flex-direction: column;
+  gap: 15px;
+  min-height: auto; /* Remove min-height */
+}
+
+#logContainer {
+  min-width: auto; /* Allow shrinking */
+  padding: 10px 15px;
+}
+
+#logOutput {
+  min-height: 100px; /* Reduce min-height */
+  padding: 10px;
+}
+
+#contextContainer {
+  /* Context takes full width, remove fixed width */
+  width: 100%;
+  flex-shrink: 1; /* Allow shrinking */
+  min-height: 100px; /* Add some min-height */
+  padding: 10px 15px;
+}
+
+/* Ensure modal dialogs are centered or positioned appropriately */
+.modal-dialog {
+  /* Consider making modals wider on mobile */
+  width: calc(100% - 30px); /* Full width minus padding */
+  margin-left: auto;
+  margin-right: auto;
+  position: fixed; /* Or relative, depending on desired behavior */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 500px; /* Limit max width */
+  z-index: 1000; /* Ensure they are on top */
+  box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+}
+/* Adjust modal padding */
+.modal-dialog {
+    padding: 15px 20px;
+}
+.modal-dialog p {
+    margin-bottom: 15px;
+    font-size: 1em;
+}
+.modal-buttons {
+    justify-content: center; /* Center buttons */
+}
+
+/* Adjust logo container for smaller space */
+.logo-container h1 {
+    font-size: 1.2em;
+}
+#appLogo {
+    height: 28px;
+    margin-right: 8px;
+}
+#themeSwitcher {
+    font-size: 1.4em;
+}
+
+/* Reduce spacing in task items */
+.task-item {
+    padding: 8px 10px;
+    font-size: 0.9em;
+}
+
+/* Make file upload button slightly smaller */
+#customUploadTrigger {
+    font-size: 1.3em;
+    bottom: 8px;
+    right: 8px;
+}

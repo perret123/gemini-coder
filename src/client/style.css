@@ -1,728 +1,1014 @@
-/* src/client/style.css */
+/* c:\dev\gemini-coder\src\client\style.css */
 :root {
-  /* Dark Theme - M3 Purple (Default) */
-  --bg-primary-dark: linear-gradient(135deg, #211F26 0%, #1A191D 100%); /* Dark surface gradient */
-  --bg-secondary-dark: #2B2930; /* Slightly lighter container background */
-  --text-primary-dark: #E6E1E5; /* Light text */
-  --text-secondary-dark: #CAC4D0; /* Lighter gray secondary text */
-  --border-color-dark: #b0a3c5; /* Subtle border */
-  --accent-color-dark: #D0BCFF; /* Primary purple action color (Light M3 primary often used on dark) */
-  --accent-hover-dark: #EADDFF; /* Lighter purple hover */
-  --interactive-color-dark: #B3A6D9; /* Secondary interactive elements (links, focus, success) */
-  --interactive-hover-dark: #C7BDE8; /* Lighter hover */
-  /* Using interactive color for Success */
-  --success-color-dark: var(--interactive-color-dark); /* Purple instead of green */
-  --success-hover-dark: var(--interactive-hover-dark); /* Lighter purple hover */
-  --error-color-dark: #F2B8B5; /* Standard red */
-  --error-hover-dark: #F8DADA; /* Lighter red */
-  --warning-color-dark: #FDE485; /* Standard yellow/amber */
-  --warning-hover-dark: #FFE08C; /* Lighter yellow */
-  --confirm-color-dark: var(--accent-color-dark); /* Use accent purple for confirm */
-  --log-bg-dark: #211F26; /* Darker log background */
-  --log-border-dark: var(--border-color-dark);
-  --button-text-dark: #381E72; /* Dark purple text on light purple buttons */
-  --shadow-color-dark: rgba(0, 0, 0, 0.4); /* Slightly darker shadow */
-  --link-color-dark: var(--interactive-color-dark);
-  --diff-added-color-dark: #A5D6A7; /* Light Green */
-  --diff-removed-color-dark: #EF9A9A; /* Light Red */
+  /* Original Dark Theme Variables */
+  --bg-primary-dark: #282c34;
+  --bg-secondary-dark: #21252b;
+  --text-primary-dark: #abb2bf;
+  --text-secondary-dark: #8d93a0;
+  --border-color-dark: #353b45;
+  --interactive-color-dark: #6f42c1;
+  /* PURPLE - Updated from #61afef */
+  --button-text-dark: #ffffff;
+  --error-color-dark: #e06c75;
+  --success-color-dark: #98c379;
+  --warn-color-dark: #e5c07b;
+  --info-color-dark: #56b6c2;
+  --diff-add-bg-dark: rgba(152, 195, 121, 0.15);
+  --diff-remove-bg-dark: rgba(224, 108, 117, 0.15);
 
-  /* --- NEW: Light Theme - M3 Purple Inspired --- */
-  --bg-primary-light: linear-gradient(135deg, #FDF7FF 0%, #F8F2FA 100%); /* Light lavender gradient */
-  --bg-secondary-light: #FFFFFF; /* Pure white containers */
-  --text-primary-light: #1D1B20; /* Very dark gray text */
-  --text-secondary-light: #49454F; /* Medium gray secondary text */
-  --border-color-light: #d8cce8; /* Lighter, slightly purple border */
-  --accent-color-light: #6750A4; /* Primary purple M3 (used on light) */
-  --accent-hover-light: #5C488F; /* Darker hover for light theme */
-  --interactive-color-light: #7A6AA6; /* Secondary interactive purple */
-  --interactive-hover-light: #6E5E94; /* Darker hover */
-  --success-color-light: var(--interactive-color-light); /* Use interactive purple */
-  --success-hover-light: var(--interactive-hover-light); /* Darker hover */
-  --error-color-light: #B3261E; /* Standard M3 red */
-  --error-hover-light: #A12019; /* Darker red */
-  --warning-color-light: #7D520F; /* Standard M3 yellow/amber - dark enough text */
-  --warning-hover-light: #6F490D; /* Darker yellow */
-  --confirm-color-light: var(--accent-color-light); /* Use accent purple */
-  --log-bg-light: #F3EDF7; /* Slightly off-white/lavender log bg */
-  --log-border-light: var(--border-color-light);
-  --button-text-light: #FFFFFF; /* White text on purple buttons */
-  --shadow-color-light: rgba(0, 0, 0, 0.15); /* Lighter shadow */
-  --link-color-light: var(--interactive-color-light);
-  --diff-added-color-light: #1F7F22; /* Darker Green */
-  --diff-removed-color-light: #B3261E; /* Darker Red (same as error) */
-  /* --- END Light Theme Vars --- */
+  /* Original Light Theme Variables */
+  --bg-primary-light: #ffffff;
+  --bg-secondary-light: #f8f9fa;
+  --text-primary-light: #212529;
+  --text-secondary-light: #6c757d;
+  --border-color-light: #dee2e6;
+  --interactive-color-light: #6f42c1;
+  /* PURPLE - Updated from #007bff */
+  --button-text-light: #ffffff;
+  --error-color-light: #dc3545;
+  --success-color-light: #28a745;
+  --warn-color-light: #ffc107;
+  --info-color-light: #17a2b8;
+  --diff-add-bg-light: rgba(40, 167, 69, 0.1);
+  --diff-remove-bg-light: rgba(220, 53, 69, 0.1);
 
+  /* Original Layout & Font Variables */
+  --sidebar-width: 280px;
+  --context-width: 400px;
+  --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-size: 15px;
+  --line-height: 1.6;
+  --border-radius: 5px;
+  --transition-speed: 0.2s;
 
-  /* Global Transitions */
-  --transition-speed: 0.2s; /* Slightly faster transition */
-
-  /* Assign dark variables to generic names (Default Theme is Dark) */
+  /* Default Theme (Dark) */
   --bg-primary: var(--bg-primary-dark);
   --bg-secondary: var(--bg-secondary-dark);
   --text-primary: var(--text-primary-dark);
   --text-secondary: var(--text-secondary-dark);
   --border-color: var(--border-color-dark);
-  --accent-color: var(--accent-color-dark);
-  --accent-hover: var(--accent-hover-dark);
   --interactive-color: var(--interactive-color-dark);
-  --interactive-hover: var(--interactive-hover-dark);
-  --success-color: var(--success-color-dark);
-  --success-hover: var(--success-hover-dark);
-  --error-color: var(--error-color-dark);
-  --error-hover: var(--error-hover-dark);
-  --warning-color: var(--warning-color-dark);
-  --warning-hover: var(--warning-hover-dark);
-  --confirm-color: var(--confirm-color-dark);
-  --log-bg: var(--log-bg-dark);
-  --log-border: var(--log-border-dark);
   --button-text: var(--button-text-dark);
-  --shadow-color: var(--shadow-color-dark);
-  --link-color: var(--link-color-dark);
-  --diff-added-color: var(--diff-added-color-dark);
-  --diff-removed-color: var(--diff-removed-color-dark);
+  --error-color: var(--error-color-dark);
+  --success-color: var(--success-color-dark);
+  --warn-color: var(--warn-color-dark);
+  --info-color: var(--info-color-dark);
+  --diff-add-bg: var(--diff-add-bg-dark);
+  --diff-remove-bg: var(--diff-remove-bg-dark);
+
+  /* Theme Specific Component Variables (Dark) */
+  --sidebar-bg: var(--bg-secondary);
+  --sidebar-border: var(--border-color);
+  --task-item-hover-bg: color-mix(in srgb, var(--bg-secondary) 85%, var(--text-secondary) 15%);
+  --task-item-active-bg: var(--interactive-color);
+  --task-item-active-text: var(--button-text);
+  --delete-btn-color: var(--error-color);
+  --delete-btn-hover-bg: color-mix(in srgb, var(--error-color) 30%, transparent);
+  --context-bg: var(--bg-secondary);
+  --context-border: var(--border-color);
+  --context-text: var(--text-secondary);
 }
 
-/* --- NEW: Apply Light Theme Variables --- */
 body.theme-light {
+  /* Override for Light Theme */
   --bg-primary: var(--bg-primary-light);
   --bg-secondary: var(--bg-secondary-light);
   --text-primary: var(--text-primary-light);
   --text-secondary: var(--text-secondary-light);
   --border-color: var(--border-color-light);
-  --accent-color: var(--accent-color-light);
-  --accent-hover: var(--accent-hover-light);
   --interactive-color: var(--interactive-color-light);
-  --interactive-hover: var(--interactive-hover-light);
-  --success-color: var(--success-color-light);
-  --success-hover: var(--success-hover-light);
-  --error-color: var(--error-color-light);
-  --error-hover: var(--error-hover-light);
-  --warning-color: var(--warning-color-light);
-  --warning-hover: var(--warning-hover-light);
-  --confirm-color: var(--confirm-color-light);
-  --log-bg: var(--log-bg-light);
-  --log-border: var(--log-border-light);
   --button-text: var(--button-text-light);
-  --shadow-color: var(--shadow-color-light);
-  --link-color: var(--link-color-light);
-  --diff-added-color: var(--diff-added-color-light);
-  --diff-removed-color: var(--diff-removed-color-light);
+  --error-color: var(--error-color-light);
+  --success-color: var(--success-color-light);
+  --warn-color: var(--warn-color-light);
+  --info-color: var(--info-color-light);
+  --diff-add-bg: var(--diff-add-bg-light);
+  --diff-remove-bg: var(--diff-remove-bg-light);
 
-  /* --- Specific overrides for light theme --- */
-
-  /* Inputs */
-  input[type="text"], textarea {
-    background: linear-gradient(var(--bg-secondary-light), var(--bg-secondary-light)), /* Layer 1: Actual background */
-                      linear-gradient(90deg, var(--accent-color-light), var(--interactive-color-light)); /* Layer 2: Border gradient */
-    background-origin: border-box;
-    background-clip: padding-box, border-box;
-  }
-  input[type="text"]:focus, textarea:focus {
-     background: linear-gradient(var(--bg-secondary-light), var(--bg-secondary-light)), /* Layer 1: Actual background */
-                      linear-gradient(90deg, var(--accent-hover-light), var(--interactive-hover-light)); /* Layer 2: Use hover colors for border */
-     box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-color-light) 25%, transparent); /* Use light interactive color for glow */
-  }
-
-  /* Buttons that needed specific dark text */
-   #startButton,
-   #confirmYes,
-   #confirmYesAll {
-       color: var(--button-text-light); /* White text */
-   }
-   /* ConfirmNo uses error colors which already have light/dark text contrast handled implicitly */
-   #confirmNo {
-       background: var(--error-color-light);
-       color: #FFFFFF; /* White text on red */
-   }
-   #confirmNo:hover {
-       background: var(--error-hover-light);
-       color: #FFFFFF;
-   }
-
-   /* Container Backgrounds - Need light theme gradient */
-    #controls, #logContainer, #feedbackContainer {
-       background-image:
-          /* Top-left radial */
-          radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--interactive-color-light) 15%, transparent) 0%, transparent 30%),
-          /* Bottom-right radial */
-          radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--accent-color-light) 10%, transparent) 0%, transparent 35%),
-          /* Base linear gradient */
-          linear-gradient(160deg, var(--bg-secondary-light) 0%, color-mix(in srgb, var(--bg-secondary-light) 90%, #E0E0E0 10%) 100%);
-        background-color: var(--bg-secondary-light); /* Solid fallback */
-    }
-
-   /* Log Output Area */
-   #logOutput {
-     background-color: var(--log-bg-light);
-     border: 1px solid var(--log-border-light);
-     color: var(--text-primary-light); /* Ensure log text has base color */
-   }
-   #logOutput > div {
-      border-bottom: 1px solid var(--border-color-light);
-   }
-
-   /* Log Message Colors */
-  .log-info { color: var(--text-secondary-light); }
-  .log-gemini-req { color: color-mix(in srgb, var(--text-secondary-light) 80%, transparent); font-style: italic; }
-  .log-gemini-resp { color: var(--interactive-color-light); font-weight: bold; }
-  .log-func-call { color: color-mix(in srgb, var(--warning-color-light) 95%, var(--text-primary-light) 60%); } /* Use light warning */
-  .log-func-result { color: color-mix(in srgb, var(--success-color-light) 95%, var(--text-primary-light) 60%); } /* Use light success (purple) */
-  .log-warn { color: var(--warning-color-light); font-weight: bold; }
-  .log-error { color: var(--error-color-light); font-weight: bold; }
-  .log-success { color: var(--success-color-light); font-weight: bold; } /* Use light success (purple) */
-  .log-confirm { color: var(--confirm-color-light); font-weight: bold; } /* Use light confirm (purple) */
-
-   /* Scrollbar */
-    ::-webkit-scrollbar-track {
-        background: var(--log-bg-light); /* Light track */
-    }
-    ::-webkit-scrollbar-thumb {
-        background-color: var(--border-color-light); /* Lighter thumb */
-        border: 2px solid var(--log-bg-light); /* Match light track background */
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background-color: var(--text-secondary-light); /* Darker thumb on hover */
-    }
-
-    /* Theme switcher needs specific border/color */
-    #themeSwitcher {
-        border: 1px solid var(--border-color-light);
-        color: var(--text-primary-light);
-    }
-    #themeSwitcher:hover {
-        background-color: var(--bg-primary-light); /* Use primary light bg */
-        border-color: var(--accent-color-light);
-    }
-
-     /* Upload Trigger */
-    #customUploadTrigger {
-      color: var(--interactive-color-light);
-    }
-    #customUploadTrigger:hover {
-      border: 1px solid var(--interactive-color-light);
-      color: var(--interactive-hover-light);
-    }
-
-     /* Drop Zone Highlight */
-    #prompt.drop-zone.drag-over {
-        border-color: var(--interactive-color-light);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-color-light) 25%, transparent),
-                    inset 0 0 30px color-mix(in srgb, var(--interactive-color-light) 15%, transparent);
-        background-color: color-mix(in srgb, var(--bg-secondary-light) 90%, var(--interactive-color-light) 10%);
-    }
+  /* Theme Specific Component Variables (Light) */
+  --sidebar-bg: var(--bg-secondary);
+  --sidebar-border: var(--border-color);
+  --task-item-hover-bg: color-mix(in srgb, var(--bg-secondary) 85%, var(--text-secondary) 15%);
+  --task-item-active-bg: var(--interactive-color);
+  --task-item-active-text: var(--button-text);
+  --delete-btn-color: var(--error-color);
+  --delete-btn-hover-bg: color-mix(in srgb, var(--error-color) 15%, transparent);
+  --context-bg: var(--bg-secondary);
+  --context-border: var(--border-color);
+  --context-text: var(--text-secondary);
 }
 
+/* --- Original Base & Layout Styles --- */
+* {
+  box-sizing: border-box;
+}
 
-/* Apply theme variables */
+html {
+  font-size: var(--font-size);
+}
+
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  line-height: 1.6;
+  font-family: var(--font-family);
+  line-height: var(--line-height);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   margin: 0;
-  padding: 20px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  transition: background var(--transition-speed) ease, color var(--transition-speed) ease;
+  padding: 0;
+  display: flex;
+  /* Original layout used flex */
+  min-height: 100vh;
+  transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
 }
 
-/* Header and general layout - Minor tweaks for minimalism */
-h1, h2 {
+h1,
+h2 {
   color: var(--text-primary);
-  padding-bottom: 10px;
-  margin-bottom: 0px;
-  margin-top:0px;
+  margin-top: 0;
+  margin-bottom: 0.75em;
 }
 
-/* Base container styles */
-#controls, #logContainer, #feedbackContainer {
-  padding: 25px;
-  margin-bottom: 25px;
-  border-radius: 6px; /* Slightly smaller radius */
-  box-shadow: 0 2px 5px var(--shadow-color); /* Reduced shadow */
+button {
+  padding: 9px 16px;
+  background-color: var(--interactive-color);
+  color: var(--button-text);
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-size: 0.95em;
+  transition: background-color var(--transition-speed) ease, transform 0.1s ease, box-shadow 0.1s ease;
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+button:last-child {
+  margin-right: 0;
+}
+
+button:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--interactive-color) 85%, black);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0px);
+  box-shadow: none;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--text-secondary);
+  box-shadow: none;
+  transform: none;
+}
+
+input[type="text"],
+textarea {
+  width: 100%;
+  padding: 9px 12px;
   border: 1px solid var(--border-color);
-  transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease, background var(--transition-speed) ease;
-  position: relative; /* Needed for pseudo-elements */
-  overflow: hidden; /* Keep gradients contained */
-
-  /* Base background layer */
-  background-color: var(--bg-secondary); /* Solid fallback */
-
-  /* Cool Gradient Background with Radial Edges (Default Dark Theme) */
-  background-image:
-    /* Top-left radial */
-    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--interactive-color-dark) 20%, transparent) 0%, transparent 30%),
-    /* Bottom-right radial */
-    radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--accent-color-dark) 15%, transparent) 0%, transparent 35%),
-    /* Base linear gradient */
-    linear-gradient(160deg, var(--bg-secondary-dark) 0%, color-mix(in srgb, var(--bg-secondary-dark) 85%, black 15%) 100%);
-
+  border-radius: var(--border-radius);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.95em;
+  transition: border-color var(--transition-speed) ease, background-color var(--transition-speed) ease;
 }
 
-/* Form elements */
-.form-group {
-  margin-bottom: 20px;
+textarea {
+  min-height: 100px;
+  resize: vertical;
 }
 
-/* Make prompt container relative for positioning trigger */
-.prompt-container {
-    position: relative;
+input[type="text"]:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--interactive-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-color) 25%, transparent);
+}
+
+input[type="checkbox"] {
+  margin-right: 8px;
+  vertical-align: middle;
+  accent-color: var(--interactive-color);
+  width: 16px;
+  height: 16px;
 }
 
 label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   font-weight: 600;
   color: var(--text-secondary);
-}
-
-input[type="text"], textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-size: 1rem;
-  color: var(--text-primary);
-  /* Gradient Border (Default Dark Theme) */
-  background: linear-gradient(var(--bg-primary-dark), var(--bg-primary-dark)), /* Layer 1: Actual background */
-                    linear-gradient(90deg, var(--accent-color-dark), var(--interactive-color-dark)); /* Layer 2: Border gradient */
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
-  box-shadow: none;
-  transition: border-color var(--transition-speed) ease, box-shadow var(--transition-speed) ease, background var(--transition-speed) ease;
-}
-
-input[type="text"]:focus, textarea:focus {
-    outline: none;
-    border-color: transparent; /* Keep border transparent on focus */
-     /* Enhance border gradient slightly brighter (Default Dark Theme) */
-     background: linear-gradient(var(--bg-primary-dark), var(--bg-primary-dark)), /* Layer 1: Actual background */
-                      linear-gradient(90deg, var(--accent-hover-dark), var(--interactive-hover-dark)); /* Layer 2: Use hover colors for border */
-    /* Keep the outer focus glow using dark theme interactive color */
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-color-dark) 25%, transparent);
-}
-
-textarea {
-  resize: vertical;
-  min-height: 80px;
+  font-size: 0.9em;
 }
 
 small {
   display: block;
-  margin-top: 8px;
+  margin-top: 6px;
+  font-size: 0.85em;
   color: var(--text-secondary);
-  font-size: 0.85rem;
+  line-height: 1.4;
 }
 
-/* Buttons - Default uses accent color */
-button {
-  padding: 10px 18px;
-  color: var(--button-text); /* Default dark text */
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: 500;
-  margin-right: 10px;
-  transition: background-color var(--transition-speed) ease, transform 0.1s ease, box-shadow var(--transition-speed) ease, color var(--transition-speed) ease;
-  background: var(--accent-color); /* Default: primary action color */
-  box-shadow: 0 1px 2px var(--shadow-color);
-}
-
-button:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px var(--shadow-color); /* Slightly stronger shadow on hover */
-}
-
-button:active {
-    transform: translateY(0px);
-    box-shadow: inset 0 1px 2px color-mix(in srgb, var(--shadow-color) 50%, transparent); /* Inset shadow on active */
-}
-
-button:disabled {
-  background: color-mix(in srgb, var(--border-color) 50%, var(--bg-secondary)); /* Blend border and bg */
-  color: var(--text-secondary);
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-/* Specific Button Overrides (Defaults for Dark Theme) */
-#startButton {
-  background: var(--success-color); /* Now uses interactive purple */
-  color: var(--button-text-dark); /* Keep dark purple text */
-}
-#startButton:hover {
-  background: var(--success-hover); /* Now uses lighter interactive purple */
-  color: var(--button-text-dark); /* Keep dark purple text */
-}
-
-#confirmNo {
-   color: #410E0B; /* Dark red text */
-   background: var(--error-color); /* Ensure background is set */
-}
-#confirmNo:hover {
-   background: var(--error-hover); /* Ensure hover background is set */
-   color: #410E0B; /* Keep dark text on hover */
-}
-
-#confirmYes,
-#confirmYesAll {
-  color: var(--button-text-dark); /* Dark Purple Text */
-  background: var(--confirm-color); /* Use confirm color (accent purple) */
-}
-#confirmYes:hover,
-#confirmYesAll:hover {
-  background: var(--accent-hover); /* Matches default button hover */
-  color: var(--button-text-dark);
-}
-
-
-/* Log Area */
-#logContainer {
-  max-height: 600px;
-  overflow-y: auto;
-  /* Gradient applied via main container rule */
-}
-
-#logOutput {
+/* Keep pre styling minimal by default for log output */
+pre {
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-family: 'Consolas', 'Monaco', monospace;
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  font-family: Consolas, "Courier New", monospace;
   font-size: 0.9em;
-  background-color: var(--log-bg); /* Use log bg variable */
-  padding: 15px;
-  border-radius: 4px; /* Smaller radius */
-  border: 1px solid var(--log-border);
-  min-height: 150px;
+  /* Base font size for logs */
+}
+
+.app-container {
+  display: flex;
+  /* This matches the body's flex */
+  width: 100%;
+  /* Ensure it takes full width */
+}
+
+#taskListContainer {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background-color: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  padding: 15px 15px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
   transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
-}
-#logOutput > div {
-    padding: 4px 0;
-    border-bottom: 1px solid var(--border-color); /* Use main border color */
-}
-#logOutput > div:last-child {
-    border-bottom: none;
+  height: 100vh;
+  /* Take full height */
 }
 
-/* Log message styling (Defaults for Dark Theme) */
-.log-info { color: var(--text-secondary-dark); }
-.log-gemini-req { color: color-mix(in srgb, var(--text-secondary-dark) 80%, transparent); font-style: italic; }
-.log-gemini-resp { color: var(--interactive-color-dark); font-weight: bold; }
-.log-func-call { color: color-mix(in srgb, var(--warning-color-dark) 95%, var(--text-primary-dark) 60%); }
-.log-func-result { color: color-mix(in srgb, var(--success-color-dark) 95%, var(--text-primary-dark) 60%); } /* Success color is now purple-based */
-.log-warn { color: var(--warning-color-dark); font-weight: bold; }
-.log-error { color: var(--error-color-dark); font-weight: bold; }
-.log-success { color: var(--success-color-dark); font-weight: bold; } /* Success color is now purple-based */
-.log-confirm { color: var(--confirm-color-dark); font-weight: bold; } /* Uses purple */
-
-.log-diff {
-    color: var(--text-secondary);
-    background-color: color-mix(in srgb, var(--log-bg) 80%, var(--border-color) 20%);
-    padding: 10px;
-    border-radius: 4px;
-    margin-top: 5px;
-    font-family: 'Consolas', 'Monaco', monospace;
-    border: 1px solid var(--border-color);
-}
-.log-diff pre {
-    margin: 0;
-    white-space: pre-wrap;
-    word-wrap: break-word;
+.main-content {
+  flex-grow: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  max-height: 100vh;
+  /* Prevent main content from exceeding viewport height */
+  overflow-y: hidden;
+  /* Hide main scrollbar, panels will scroll */
 }
 
-/* START: Diff Coloring */
-.log-diff pre span.diff-added {
-  color: var(--diff-added-color); /* Use generic var */
-  display: block; /* Ensure each span takes its own line */
+.logo-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
-.log-diff pre span.diff-removed {
-  color: var(--diff-removed-color); /* Use generic var */
-  display: block; /* Ensure each span takes its own line */
+#appLogo {
+  height: 32px;
+  width: auto;
+  margin-right: 12px;
 }
 
-.log-diff pre span.diff-context {
- display: block; /* Ensure each span takes its own line */
- /* Default color will be inherited from .log-diff or .log-diff pre */
-}
-/* END: Diff Coloring */
-
-
-/* Feedback/Confirmation Area */
-#feedbackContainer {
-  border: 2px solid var(--warning-color); /* Keep warning border for emphasis */
-  transition: border-color var(--transition-speed) ease, background var(--transition-speed) ease;
-  /* Gradient applied via main container rule */
+.logo-container h1 {
+  flex-grow: 1;
+  margin: 0;
+  font-size: 1.4em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: none;
+  /* Override default h1 styles if any */
 }
 
-#feedbackContainer p {
-  margin-bottom: 15px;
-  font-weight: bold;
+#themeSwitcher {
+  /* Matches the ID in index.html */
+  background: none;
+  border: none;
+  font-size: 1.6em;
+  cursor: pointer;
+  padding: 0 5px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  margin-left: 10px;
+  transition: color var(--transition-speed) ease;
+}
+
+#themeSwitcher:hover {
   color: var(--text-primary);
 }
 
-/* Feedback buttons styled via specific rules above */
-#feedbackContainer button {
-    /* Base styles applied earlier */
+/* Task List Styling */
+#taskListContainer h2 {
+  /* If you add a heading later */
+  margin-top: 0;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 1.1em;
+  color: var(--text-primary);
+  flex-shrink: 0;
 }
 
-
-/* Utility */
-.hidden {
-  display: none !important;
+#taskList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex-grow: 1;
+  overflow-y: auto;
+  /* Adjust padding/margin for scrollbar */
+  margin-right: -15px;
+  padding-right: 15px;
 }
 
-/* Checkbox styling */
-input[type="checkbox"] {
-    margin-right: 8px;
-    accent-color: var(--interactive-color);
-    cursor: pointer;
-    width: 16px; /* Explicit size */
-    height: 16px;
-}
-.form-group label:has(input[type="checkbox"]) {
-    display: flex;
-    align-items: center;
-    font-weight: normal;
-    color: var(--text-secondary);
-}
-
-/* Links */
-a {
-    color: var(--link-color);
-    text-decoration: none;
-    transition: color var(--transition-speed) ease;
-}
-a:hover {
-    text-decoration: underline;
-    color: var(--interactive-hover);
+.task-item {
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  word-break: break-word;
+  font-size: 0.95em;
+  color: var(--text-secondary);
+  position: relative;
+  /* For potential absolute positioning inside */
 }
 
-/* Scrollbar styling (Default Dark Theme) */
-::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-}
-::-webkit-scrollbar-track {
-    background: var(--log-bg-dark); /* Use log background for track */
-    border-radius: 5px;
-}
-::-webkit-scrollbar-thumb {
-    background-color: var(--border-color-dark); /* Use border color for thumb */
-    border-radius: 5px;
-    border: 2px solid var(--log-bg-dark); /* Match track background */
-}
-::-webkit-scrollbar-thumb:hover {
-    background-color: var(--text-secondary-dark); /* Lighten thumb on hover */
+.task-item:not(.new-task-item):hover {
+  background-color: var(--task-item-hover-bg);
+  color: var(--text-primary);
 }
 
-/* --- FILE UPLOAD STYLES (Unchanged) --- */
+.task-item.active {
+  background-color: var(--task-item-active-bg);
+  color: var(--task-item-active-text) !important;
+  /* Ensure override */
+  font-weight: 600;
+  border-color: color-mix(in srgb, var(--task-item-active-bg) 70%, black);
+}
 
-/* Accessible hiding for the original file input */
+.task-item.active .task-title {
+  color: var(--task-item-active-text);
+}
+
+.task-item.active .delete-task-btn {
+  color: color-mix(in srgb, var(--task-item-active-text) 70%, var(--error-color) 30%);
+}
+
+.task-item.active .delete-task-btn:hover {
+  color: var(--error-color);
+  background-color: color-mix(in srgb, var(--task-item-active-text) 20%, transparent);
+}
+
+.task-item .task-title {
+  flex-grow: 1;
+  margin-right: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  transition: color 0.15s ease;
+}
+
+.delete-task-btn {
+  background: none;
+  border: none;
+  color: transparent;
+  /* Hide by default */
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 1.1em;
+  line-height: 1;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+  opacity: 0.7;
+  margin: 0;
+  /* Reset button margin */
+}
+
+.task-item:hover .delete-task-btn {
+  /* Show on hover */
+  color: var(--delete-btn-color);
+  opacity: 1;
+}
+
+.delete-task-btn:hover {
+  background-color: var(--delete-btn-hover-bg);
+  color: color-mix(in srgb, var(--delete-btn-color) 80%, black);
+  transform: none;
+  /* Override base button hover */
+  box-shadow: none;
+  /* Override base button hover */
+}
+
+.new-task-item {
+  font-style: italic;
+  color: var(--text-secondary);
+  border: 1px dashed var(--border-color);
+}
+
+.new-task-item:hover {
+  background-color: var(--task-item-hover-bg);
+  border-color: var(--interactive-color);
+  border-style: solid;
+  color: var(--text-primary);
+}
+
+.new-task-item.active {
+  background-color: var(--task-item-active-bg);
+  color: var(--task-item-active-text);
+  font-weight: 600;
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--task-item-active-bg) 70%, black);
+}
+
+/* Controls Section */
+#controls {
+  background-color: var(--bg-secondary);
+  padding: 20px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  margin-bottom: 20px;
+  flex-shrink: 0;
+  /* Prevent controls from shrinking */
+  transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+}
+
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+/* Add to src/client/style.css */
+.base-dir-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.base-dir-controls input[type="text"] {
+  flex-grow: 1;
+}
+
+#indexCodebaseButton {
+  padding: 8px 12px;
+  /* Slightly smaller */
+  font-size: 0.9em;
+  flex-shrink: 0;
+  background-color: var(--text-secondary);
+  /* More subtle color */
+}
+
+#indexCodebaseButton:hover:not(:disabled) {
+  background-color: var(--interactive-color);
+}
+
+#lastIndexedStatus {
+  font-size: 0.8em;
+  color: var(--text-secondary);
+}
+
+#indexingProgressBarContainer {
+  background-color: var(--border-color);
+  border-radius: var(--border-radius);
+  padding: 2px;
+}
+
+#indexingProgressBarContainer.hidden {
+  display: none;
+}
+
+.prompt-container {
+  position: relative;
+}
+
+#customUploadTrigger {
+  /* Style the file upload trigger button */
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  font-size: 1.5em;
+  cursor: pointer;
+  color: var(--text-secondary);
+  padding: 5px;
+  line-height: 1;
+  transition: color var(--transition-speed);
+  z-index: 1;
+  /* Ensure it's above the textarea */
+}
+
+#customUploadTrigger:hover {
+  color: var(--interactive-color);
+}
+
+#customUploadTrigger:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .visually-hidden {
+  /* Hide the actual file input */
   position: absolute !important;
   height: 1px;
   width: 1px;
   overflow: hidden;
   clip: rect(1px, 1px, 1px, 1px);
-  white-space: nowrap; /* Keep accessibility */
+  white-space: nowrap;
+  /* Added */
 }
 
-/* Custom Upload Trigger Button */
-#customUploadTrigger {
-  position: absolute;
-  bottom: 10px; /* Position from bottom inside the relative container */
-  right: 10px;  /* Position from right inside the relative container */
-  padding: 4px 8px; /* Smaller padding */
-  font-size: 1.2em; /* Slightly larger emoji/icon size */
-  line-height: 1; /* Ensure consistent height */
-  background-color: transparent; /* Use interactive color mix */
-  color: var(--interactive-color); /* Use interactive color */
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  z-index: 1; /* Ensure it's above the textarea */
-  margin-right: 0; /* Override default button margin */
-  transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease, border var(--transition-speed) ease;
-}
-#customUploadTrigger:hover {
-  background-color: transparent;
-  border: 1px solid var(--interactive-color); /* Add border on hover */
-  color: var(--interactive-hover);
-}
-#customUploadTrigger:active {
-    transform: translateY(1px); /* Simple active state */
-    box-shadow: none; /* Remove active shadow */
-}
-
-/* Drop Zone Styles for Textarea */
-#prompt.drop-zone {
-    /* Optional: make it look more like a drop zone */
-}
-
-#prompt.drop-zone.drag-over {
-  border-color: var(--interactive-color);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--interactive-color) 25%, transparent), /* Existing focus style */
-              inset 0 0 30px color-mix(in srgb, var(--interactive-color) 15%, transparent); /* Inner glow */
-  background-color: color-mix(in srgb, var(--bg-primary) 90%, var(--interactive-color) 10%); /* Slight background tint */
-}
-
-/* Ensure textarea padding doesn't overlap the button */
-textarea#prompt {
-    padding-right: 45px; /* Add padding to avoid text going under the button */
-    padding-bottom: 35px; /* Add padding to avoid text going under the button if it wraps */
-}
-
-/* ---- NEW STYLES FOR LOGO & THEME SWITCHER ---- */
-/* Logo Container - Updated for Flexbox */
-.logo-container {
-    display: flex; /* Use flexbox for alignment */
-    justify-content: space-between; /* Space between logo and button */
-    align-items: center; /* Align items vertically */
-    margin-bottom: 20px;
-    padding-top: 15px;
-    padding-left: 10px; /* Add some padding */
-    padding-right: 10px; /* Add some padding */
-}
-
-/* Logo Image */
-#appLogo {
-    max-width: 150px;
-    max-height: 60px; /* Added max-height */
-    height: auto;
-}
-
-/* Theme Switcher Button */
-#themeSwitcher {
-    background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    padding: 5px 8px;
-    font-size: 1.2rem;
-    cursor: pointer;
-    border-radius: 4px;
-    line-height: 1;
-    margin: 0; /* Remove default margins from base button style */
-    box-shadow: none; /* Remove default box shadow */
-    transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease, color var(--transition-speed) ease;
-}
-
-#themeSwitcher:hover {
-    background-color: var(--bg-secondary); /* Use secondary background on hover */
-    border-color: var(--accent-color);
-    transform: none; /* Override base button hover transform */
-    box-shadow: none; /* Ensure no shadow on hover */
-}
-
-#themeSwitcher:active {
-    transform: translateY(1px); /* Simpler active state */
-    box-shadow: none; /* Ensure no shadow on active */
-}
-/* ---- END NEW STYLES ---- */
-
-/* Adjust top padding for the controls container */
-#controls {
-    padding-top: 10px; /* Reduce padding since logo adds space above */
-}
-
-
-/* --- NEW: Question Input Container --- */
-#questionContainer {
-    border: 2px solid var(--interactive-color); /* Use interactive color */
-    transition: border-color var(--transition-speed) ease, background var(--transition-speed) ease;
-    /* Gradient applied via main container rule */
-}
-
-#questionContainer p {
-    margin-bottom: 15px;
-    font-weight: bold;
-    color: var(--text-primary);
-}
-
-.question-input-group {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-
-.question-input-group input[type="text"] {
-    flex-grow: 1; /* Input takes available space */
-    /* Styles inherited from base input styles */
-}
-
-.question-input-group button {
-    background-color: var(--interactive-color); /* Use interactive color */
-    color: var(--button-text);
-    /* Inherits hover/active from base button but uses interactive color */
-}
-.question-input-group button:hover {
-    background-color: var(--interactive-hover);
-}
-
-.question-button-group button {
-   /* General button styles applied */
-}
-
-/* Override specific question buttons if needed, e.g., Yes/No */
-#questionYes {
-     background: var(--confirm-color); /* Use confirm color (e.g., accent) */
-     color: var(--button-text);
-}
-#questionYes:hover {
-     background: var(--accent-hover); /* Use accent hover */
-     color: var(--button-text);
-}
-
-#questionNo {
-    background: var(--error-color); /* Use error color */
-    color: #FFFFFF; /* Ensure contrast on red */
-}
-#questionNo:hover {
-    background: var(--error-hover);
-    color: #FFFFFF;
-}
-/* --- END Question Input Container --- */
-
-/* --- NEW: Styles for Context Checkbox & Temperature Slider --- */
 .context-temp-group {
   display: flex;
-  justify-content: space-between; /* Push checkbox and slider apart */
+  justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap; /* Allow wrapping on smaller screens if needed */
-  gap: 15px; /* Add some gap if they wrap */
+  flex-wrap: wrap;
+  gap: 15px 25px;
+  /* Row and column gap */
 }
 
-/* Keep the checkbox label alignment consistent */
-.context-temp-group > label[for="continueContext"] {
-  margin-bottom: 0; /* Remove default bottom margin from form-group label */
+.context-temp-group label {
+  /* Style checkbox label */
+  margin-bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.9em;
+  font-weight: normal;
+  color: var(--text-primary);
 }
 
 .temperature-slider-container {
   display: flex;
   align-items: center;
-  gap: 8px; /* Space between label, slider, and value */
+  gap: 8px;
 }
 
 .temperature-slider-container label {
-  margin-bottom: 0; /* Override default label margin */
-  white-space: nowrap; /* Prevent label text wrapping */
+  /* Style temp label */
+  margin-bottom: 0;
+  font-size: 0.9em;
+  font-weight: normal;
+  color: var(--text-primary);
 }
 
 #temperatureSlider {
-  width: 120px; /* Give slider a specific width */
+  width: 120px;
   cursor: pointer;
-  accent-color: var(--interactive-color); /* Match checkbox color */
-  padding: 0; /* Remove default padding if any */
-  border: none; /* Remove default border if any */
-  background: transparent; /* Reset background */
-  box-shadow: none; /* Remove default shadow if any */
+  height: 5px;
+  /* Make slider thinner */
+  accent-color: var(--interactive-color);
+  /* Color the slider track/thumb */
 }
 
 #temperatureValue {
   font-weight: bold;
-  color: var(--text-secondary);
-  min-width: 2.5em; /* Ensure space for values like '1.0' */
+  min-width: 30px;
+  /* Ensure space for value */
   text-align: right;
+  font-size: 0.9em;
+  color: var(--text-primary);
 }
-/* --- END Context/Temp Styles --- */
+
+#startButton {
+  padding: 12px 25px;
+  font-size: 1.05em;
+  font-weight: 600;
+}
+
+/* Logs and Context Area Wrapper */
+.logs-and-context-wrapper {
+  display: flex;
+  gap: 20px;
+  flex-grow: 1;
+  /* Allow this wrapper to fill remaining space */
+  min-height: 200px;
+  /* Ensure it has some minimum height */
+  overflow: hidden;
+  /* Prevent wrapper scrollbars, children will scroll */
+}
+
+/* Log Container */
+#logContainer {
+  flex-grow: 1;
+  /* Take available horizontal space */
+  display: flex;
+  flex-direction: column;
+  /* Stack heading and log output */
+  background-color: var(--bg-secondary);
+  padding: 15px 20px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+  overflow: hidden;
+  /* Hide container scrollbar */
+  min-width: 0;
+  /* Allow shrinking */
+}
+
+#logContainer h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.1em;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+/* Log Output Area - THIS IS WHERE LOGS APPEAR */
+#logOutput {
+  flex-grow: 1;
+  /* Take remaining vertical space in logContainer */
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 12px 15px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  overflow-y: auto;
+  /* Enable vertical scrolling */
+  min-height: 150px;
+  /* Ensure minimum height */
+  transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease, color var(--transition-speed) ease;
+  /* Flex settings for log entries */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  /* Align items (bubbles/text) to the left */
+}
+
+/* --- NEW/MODIFIED Log Entry Styles --- */
+.log-entry {
+  /* Basic styling for ALL entries (plain text will mostly use this) */
+  margin-bottom: 4px;
+  /* Small gap between plain text lines */
+  padding: 0 2px;
+  /* Minimal padding for plain text */
+  max-width: 100%;
+  /* Ensure text wraps */
+  word-wrap: break-word;
+  /* Ensure long words break */
+  overflow-wrap: break-word;
+  /* Modern equivalent */
+  white-space: pre-wrap;
+  /* Allow wrapping but preserve whitespace */
+  font-family: Consolas, "Courier New", monospace;
+  /* Use monospace for logs */
+  font-size: 0.9em;
+  line-height: 1.4;
+  /* Adjust line height for readability */
+}
+
+/* Style the action bubbles */
+.log-action-bubble {
+  padding: 8px 8px;
+  /* More padding for bubble effect */
+  border-radius: 15px;
+  /* Rounded corners */
+  /* Use a slightly different background, mix with secondary for theme support */
+  background-color: color-mix(in srgb, var(--bg-secondary) 70%, var(--bg-primary) 30%);
+  margin-bottom: 8px;
+  /* Larger gap between bubbles */
+  /* Make it fit content, but not exceed a certain width for bubble feel */
+  display: inline-flex;
+  /* Use flex to layout content and timestamp */
+  flex-wrap: wrap;
+  /* Allow wrapping if content + timestamp is too long */
+  align-items: baseline;
+  /* Align text and timestamp nicely */
+  gap: 0 8px;
+  /* Space between message and timestamp */
+  max-width: 90%;
+  /* Prevent very long bubbles from filling width */
+  border: 1px solid var(--border-color);
+  /* Subtle border */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  /* Very subtle shadow */
+  white-space: normal;
+  /* Override pre-wrap for bubbles to allow normal wrapping */
+}
+
+/* Style for the message content within the bubble */
+.log-message-content {
+  /* Allow content to take space and wrap */
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-width: 0;
+  /* Important for flex wrapping */
+}
+
+/* Style the timestamp */
+.log-timestamp {
+  font-size: 0.8em;
+  /* Smaller font size */
+  color: var(--text-primary);
+  /* Use secondary text color */
+  opacity: 0.8;
+  /* Make it slightly faded */
+  /* Prevent timestamp from shrinking */
+  flex-shrink: 0;
+  /* Align self slightly lower if needed, but baseline should handle it */
+  /* align-self: flex-end; */
+  white-space: nowrap;
+  /* Prevent timestamp from wrapping */
+  margin-left: auto;
+  /* Push to the right if flex layout allows */
+  padding-left: 8px;
+  /* Ensure space if content doesn't wrap */
+}
+
+/* Ensure specific log types still get their color (applied to bubble) */
+.log-info {
+  color: var(--info-color);
+}
+
+.log-success {
+  color: var(--success-color);
+  font-weight: bold;
+}
+
+.log-error {
+  color: var(--error-color);
+  font-weight: bold;
+}
+
+.log-warn {
+  color: var(--warn-color);
+}
+
+/* Confirm might use warn color, but ensure it's applied */
+.log-confirm {
+  color: var(--warn-color);
+  font-weight: bold;
+}
+
+/* Colors should apply to the message content primarily */
+.log-action-bubble .log-message-content {
+  color: inherit;
+  /* Inherit color from parent bubble (.log-success, .log-error etc) */
+}
+
+/* Keep existing styles for debug, gemini, func, etc. */
+/* These will appear as plain text unless they get the bubble class */
+.log-gemini-req {
+  color: var(--interactive-color);
+  font-style: italic;
+  opacity: 0.9;
+}
+
+.log-gemini-resp {
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.log-func-call {
+  color: var(--warn-color);
+  opacity: 0.9;
+}
+
+.log-func-result {
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.log-debug {
+  color: #777;
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
+[data-theme="dark"] .log-debug {
+  color: #aaa;
+}
+
+/* Dark theme debug color */
+
+/* Ensure diff block styling remains distinct */
+.log-diff pre {
+  margin: 5px 0 8px 0;
+  /* Adjust margin slightly */
+  padding: 10px 12px;
+  background-color: var(--bg-secondary);
+  /* Make background slightly more prominent */
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  max-width: 100%;
+  overflow-x: auto;
+  /* Allow horizontal scroll if needed */
+  white-space: pre;
+  /* Force pre formatting for diff */
+}
+
+/* Keep diff added/removed/context styles */
+.log-diff span {
+  display: block;
+  white-space: pre;
+  /* Ensure spans within diff also respect pre formatting */
+  font-family: Consolas, "Courier New", monospace;
+  /* Ensure monospace font */
+}
+
+.diff-added {
+  color: var(--success-color);
+  background-color: var(--diff-add-bg);
+}
+
+.diff-removed {
+  color: var(--error-color);
+  background-color: var(--diff-remove-bg);
+}
+
+.diff-context {
+  color: var(--text-secondary);
+  opacity: 0.8;
+  font-style: italic;
+}
+
+.diff-header {
+  color: var(--text-secondary);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* Style for --- +++ lines */
+
+
+/* Ensure bubble text inherits colors correctly and add colored borders */
+.log-action-bubble.log-success {
+  border-color: var(--success-color);
+}
+
+.log-action-bubble.log-error {
+  border-color: var(--error-color);
+}
+
+.log-action-bubble.log-warn {
+  border-color: var(--warn-color);
+}
+
+.log-action-bubble.log-confirm {
+  border-color: var(--warn-color);
+}
+
+.log-action-bubble.log-info {
+  border-color: var(--info-color);
+}
+
+/* --- End Log Entry Styles --- */
+
+
+/* Context Container */
+#contextContainer {
+  width: var(--context-width);
+  flex-shrink: 0;
+  /* Prevent context panel from shrinking */
+  background-color: var(--context-bg);
+  border: 1px solid var(--context-border);
+  border-radius: var(--border-radius);
+  padding: 15px 20px;
+  display: flex;
+  flex-direction: column;
+  /* Stack heading and list */
+  overflow: hidden;
+  /* Hide container scrollbar */
+  transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+}
+
+#contextContainer h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.1em;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+#contextList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  flex-grow: 1;
+  /* Take remaining vertical space */
+  overflow-y: auto;
+  /* Enable vertical scrolling */
+  font-size: 0.88em;
+  color: var(--context-text);
+}
+
+#contextList li {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-color);
+  word-break: break-all;
+  /* Allow long items to break */
+  line-height: 1.4;
+}
+
+#contextList li:last-child {
+  border-bottom: none;
+}
+
+
+/* Modal Dialog Styles */
+.modal-dialog {
+  /* Base style for feedback/question containers */
+  background-color: var(--bg-secondary);
+  padding: 20px 25px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  margin-top: 20px;
+  /* Spacing if shown below controls */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transition: background-color var(--transition-speed) ease, border-color var(--transition-speed) ease;
+  flex-shrink: 0;
+  /* Prevent modals shrinking */
+  z-index: 10;
+  /* Ensure modals are above other content */
+}
+
+.modal-dialog p {
+  /* Style the message/question text */
+  margin-top: 0;
+  margin-bottom: 18px;
+  font-weight: bold;
+  color: var(--warn-color);
+  /* Use warn color for prominence */
+  font-size: 1.05em;
+  line-height: 1.5;
+}
+
+.modal-buttons {
+  /* Container for modal buttons */
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  /* Align buttons to the right */
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Utility to hide modals */
+
+/* Specific Modal Button Styling */
+#confirmNo,
+#questionNo {
+  background-color: var(--error-color);
+}
+
+#confirmNo:hover:not(:disabled),
+#questionNo:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--error-color) 85%, black);
+}
+
+#confirmYes,
+#questionYes,
+#confirmYesAll,
+#submitAnswer {
+  /* Default button style uses interactive color, so no override needed unless desired */
+  /* background-color: var(--interactive-color); */
+}
+
+#confirmYes:hover:not(:disabled),
+#questionYes:hover:not(:disabled),
+#confirmYesAll:hover:not(:disabled),
+#submitAnswer:hover:not(:disabled) {
+  /* Default button hover uses mix, so no override needed */
+  /* background-color: color-mix(in srgb, var(--interactive-color) 85%, black); */
+}
+
+/* Question Input Specifics */
+.question-input-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.question-input-group input[type="text"] {
+  flex-grow: 1;
+}
+
+.question-input-group button {
+  flex-shrink: 0;
+}
+
+.question-button-group {
+  /* Can reuse modal-buttons class */
+}
+
+/* Drag and Drop Highlighting */
+.drop-zone.drag-over {
+  border-color: var(--interactive-color);
+  box-shadow: inset 0 0 8px color-mix(in srgb, var(--interactive-color) 40%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--interactive-color) 25%, transparent);
+  background-color: color-mix(in srgb, var(--bg-primary) 80%, var(--interactive-color) 20%);
+}
